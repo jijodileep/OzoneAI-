@@ -1,0 +1,33 @@
+---
+description: OzoneAI locked tech stack and coding standards
+globs:
+alwaysApply: true
+---
+
+# OzoneAI — Agent rules
+
+Follow `docs/architecture/tech-stack.md` and `docs/requirements/v3/` as source of truth.
+
+## Stack (do not substitute without an explicit product decision)
+
+- API: ASP.NET Core 9, Clean Architecture (`Domain` / `Application` / `Infrastructure` / `Api`), MediatR + FluentValidation
+- Admin UI: React + TypeScript (Vite) + Ant Design + AG Grid in `apps/ozone_web`
+- Mobile: Flutter flavors (customer / sales / van) in `apps/ozone_mobile`
+- DB: PostgreSQL — one DB per company (`ozone_t_{key}`) + central `ozone_catalog`; pgvector for embeddings
+- Search: Meilisearch (self-hosted Docker)
+- Cache/jobs: Redis + Hangfire
+- Storage: MinIO (S3 API)
+- AI: Semantic Kernel + Ollama / OpenAI-compatible — propose-only, never auto-post ledgers
+- Deploy: Docker Compose; open source / self-hosted — **no Azure**
+
+## Workflow
+
+- One Linear issue per branch: `feat/OZC-xxx-short-name` (or `feat/e1-1-short-name` until Linear IDs exist)
+- PR target: `develop`; never force-push `main`
+- Never commit secrets (`.env`, keys, connection strings with real passwords)
+
+## Code style
+
+- Match existing project patterns; prefer minimal diffs
+- Tenant isolation is mandatory — never query another company's DB without audited impersonation
+- Specs live under `docs/requirements/v3/`; link the spec path in PRs

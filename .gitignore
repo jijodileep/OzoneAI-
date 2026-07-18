@@ -1,0 +1,42 @@
+# Secrets
+.env
+.env.*
+!.env.example
+**/appsettings.*.local.json
+**/secrets.json
+
+# .NET
+**/bin/
+**/obj/
+**/out/
+*.user
+*.suo
+*.user
+.vs/
+TestResults/
+
+# Node
+**/node_modules/
+**/dist/
+**/.vite/
+*.log
+npm-debug.log*
+
+# Flutter
+**/apps/ozone_mobile/.dart_tool/
+**/apps/ozone_mobile/build/
+**/apps/ozone_mobile/.flutter-plugins*
+**/apps/ozone_mobile/.packages
+
+# IDE
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Docker volumes / local data
+docker/data/
+*.sql.gz
+
+# OS
+Desktop.ini

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+jobs:
+  api:
+    name: Build API
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+      - name: Restore
+        run: dotnet restore OzoneAI.sln
+      - name: Build
+        run: dotnet build OzoneAI.sln -c Release --no-restore
+      - name: Test (optional)
+        run: |
+          if [ -d ../tests ]; then dotnet test ../tests -c Release --no-build; else echo "No tests yet"; fi
+
+  web:
+    name: Build web (when present)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install and build
+        working-directory: apps/ozone_web
+        run: |
+          if [ -f package.json ]; then
+            npm ci
+            npm run build
+          else
+            echo "Web app not scaffolded yet — placeholder OK"
+          fi

@@ -1,0 +1,16 @@
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+WORKDIR /src
+COPY src/OzoneAI.sln ./
+COPY src/OzoneAI.Api/OzoneAI.Api.csproj OzoneAI.Api/
+COPY src/OzoneAI.Application/OzoneAI.Application.csproj OzoneAI.Application/
+COPY src/OzoneAI.Domain/OzoneAI.Domain.csproj OzoneAI.Domain/
+COPY src/OzoneAI.Infrastructure/OzoneAI.Infrastructure.csproj OzoneAI.Infrastructure/
+RUN dotnet restore OzoneAI.Api/OzoneAI.Api.csproj
+COPY src/ ./
+RUN dotnet publish OzoneAI.Api/OzoneAI.Api.csproj -c Release -o /app/publish /p:UseAppHost=false
+
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "OzoneAI.Api.dll"]

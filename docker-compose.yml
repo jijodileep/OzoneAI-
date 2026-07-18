@@ -1,0 +1,92 @@
+services:
+  postgres-catalog:
+    image: pgvector/pgvector:pg16
+    container_name: ozoneai-postgres-catalog
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ozone
+      POSTGRES_PASSWORD: ozone_dev_password
+      POSTGRES_DB: ozone_catalog
+    ports:
+      - "5432:5432"
+    volumes:
+      - catalog_data:/var/lib/postgresql/data
+      - ./docker/init-tenants-db.sh:/docker-entrypoint-initdb.d/02-tenants.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ozone -d ozone_catalog"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Same Postgres instance hosts many ozone_t_* DBs (created by Super Admin later).
+  # init script also creates empty template DB role helpers.
+
+  redis:
+    image: redis:7-alpine
+    container_name: ozoneai-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: ozoneai-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ozoneai
+      MINIO_ROOT_PASSWORD: ozoneai_dev_password
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    container_name: ozoneai-meilisearch
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: ozoneai_meili_dev_master_key_change_me
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: ozoneai-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__Catalog: Host=postgres-catalog;Port=5432;Database=ozone_catalog;Username=ozone;Password=ozone_dev_password
+      Meilisearch__Url: http://meilisearch:7700
+      Meilisearch__ApiKey: ozoneai_meili_dev_master_key_change_me
+    ports:
+      - "5080:8080"
+    depends_on:
+      postgres-catalog:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+
+volumes:
+  catalog_data:
+  minio_data:
+  meili_data:
