@@ -8,7 +8,8 @@ services:
       POSTGRES_PASSWORD: ozone_dev_password
       POSTGRES_DB: ozone_catalog
     ports:
-      - "5432:5432"
+      # Host 5433 avoids clash with local Postgres/MySQL stacks on 5432
+      - "5433:5432"
     volumes:
       - catalog_data:/var/lib/postgresql/data
       - ./docker/init-tenants-db.sh:/docker-entrypoint-initdb.d/02-tenants.sh:ro
@@ -26,7 +27,7 @@ services:
     container_name: ozoneai-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

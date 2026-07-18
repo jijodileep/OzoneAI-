@@ -24,10 +24,16 @@ AI-integrated, multi-tenant ERP (open source / self-hosted).
 
 ```bash
 docker compose up -d
-cd src/OzoneAI.Api && dotnet run
+cd src && dotnet run --project OzoneAI.Api --urls http://localhost:5080
 ```
 
-Health: `GET http://localhost:5080/health`
+| Service | Host URL |
+|---------|----------|
+| API health | `GET http://localhost:5080/health` |
+| Postgres catalog | `localhost:5433` (container 5432) |
+| Redis | `localhost:6380` |
+| MinIO | `http://localhost:9000` (console `:9001`) |
+| Meilisearch | `http://localhost:7700` |
 
 ## Branches
 
