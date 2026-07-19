@@ -57,5 +57,10 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
 
         builder.Property(x => x.CreatedAt)
             .IsRequired();
+
+        builder.HasOne(x => x.Plan)
+            .WithMany(x => x.Companies)
+            .HasForeignKey(x => x.PlanId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

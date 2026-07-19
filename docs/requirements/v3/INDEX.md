@@ -61,6 +61,8 @@ Migration-ready requirements for rebuilding Ozone ERP / CPZSAS from the **v3** C
 | 91 | Software Version | settings | [settings/software-version.md](settings/software-version.md) | `settings/SoftwareVersion/listall` | done |
 | 92 | Users | master | [master/users.md](master/users.md) | `settings/NewMaster/Users` | done |
 | 95 | Company Settings | settings | [settings/company-settings.md](settings/company-settings.md) | `settings/CompanySettings/listall` | done |
+| — | Company Profile / Address | settings | [settings/company-profile.md](settings/company-profile.md) | OzoneAI tenant profile | done |
+| — | Financial Year | settings | [settings/financial-year.md](settings/financial-year.md) | OzoneAI FY switch / close | done |
 | 97 | Menu To User | settings | [settings/menu-to-user.md](settings/menu-to-user.md) | `settings/MenuToUser/listall` | done |
 | 105 | Purchase Return | transaction | [transaction/purchase-return.md](transaction/purchase-return.md) | `transaction/purchase/listall/purchase_return` | done |
 | 106 | Purchase Order | transaction | [transaction/purchase-order.md](transaction/purchase-order.md) | `transaction/purchase/listall/order` | done |

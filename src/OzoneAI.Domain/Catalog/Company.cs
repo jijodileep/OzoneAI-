@@ -39,4 +39,8 @@ public class Company
     public int TotalUsersCached { get; set; }
 
     public string? SchemaVersion { get; set; }
+
+    public Guid? PlanId { get; set; }
+
+    public SubscriptionPlan? Plan { get; set; }
 }

@@ -7,9 +7,13 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 {
     public DbSet<Company> Companies => Set<Company>();
 
+    public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.ApplyConfigurationsFromAssembly(typeof(CatalogDbContext).Assembly);
+        modelBuilder.ApplyConfigurationsFromAssembly(
+            typeof(CatalogDbContext).Assembly,
+            t => t.Namespace == typeof(CatalogDbContext).Namespace);
         base.OnModelCreating(modelBuilder);
     }
 }
