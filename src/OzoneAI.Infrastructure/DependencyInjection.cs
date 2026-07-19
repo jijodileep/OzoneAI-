@@ -1,5 +1,7 @@
 using System.Security.Claims;
 using System.Text;
+using Hangfire;
+using Hangfire.Redis.StackExchange;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -49,6 +51,16 @@ public static class DependencyInjection
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
         services.AddScoped<ITenantMetricsService, TenantMetricsService>();
         services.AddScoped<ITenantLifecycleService, TenantLifecycleService>();
+        services.AddScoped<TenantMetricsRollupJob>();
+
+        var redisConnection = configuration.GetConnectionString("Redis")
+            ?? "localhost:6380";
+        services.AddHangfire(config => config
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UseRedisStorage(redisConnection));
+        services.AddHangfireServer();
 
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher<PlatformUser>, PasswordHasher<PlatformUser>>();

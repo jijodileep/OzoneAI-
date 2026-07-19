@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using Hangfire;
+using Hangfire.Dashboard;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OzoneAI.Application.FinancialYears;
@@ -51,6 +53,16 @@ if (app.Environment.IsDevelopment())
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = [new LocalRequestsOnlyAuthorizationFilter()]
+});
+
+RecurringJob.AddOrUpdate<TenantMetricsRollupJob>(
+    "tenant-metrics-rollup",
+    job => job.ExecuteAsync(CancellationToken.None),
+    Cron.Daily(2));
 
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Ok(new
