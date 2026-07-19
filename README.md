@@ -30,6 +30,7 @@ cd src && dotnet run --project OzoneAI.Api --urls http://localhost:5080
 | Service | Host URL |
 |---------|----------|
 | API health | `GET http://localhost:5080/health` |
+| Hangfire dashboard | `http://localhost:5080/hangfire` (local requests only) |
 | Postgres catalog | `localhost:5433` (container 5432) |
 | Redis | `localhost:6380` |
 | MinIO | `http://localhost:9000` (console `:9001`) |
