@@ -53,9 +53,11 @@ flowchart TB
 | Table | Purpose |
 |-------|---------|
 | `subscription_plans` | Plan name, limits (users, godowns, modules flags), price metadata, active |
-| `companies` | Registry: key, tenant DB name, status, **PlanId**, created/last-used metrics |
+| `companies` | Registry: key, logical **DatabaseName**, status, **PlanId**, metrics — **no passwords** |
+| `tenant_db_credentials` | **Separate** host/port/username/password per company; Role = `Write` or `Read` (replica) |
 
-Super Admin assigns a plan when creating/editing a tenant. Changing plan updates entitlements.
+Super Admin assigns a plan when creating/editing a tenant. Changing plan updates entitlements.  
+Connection secrets are never stored on `companies` — only in `tenant_db_credentials` (encrypted at rest in production).
 
 ### Tenant DB (`ozone_t_{key}`)
 

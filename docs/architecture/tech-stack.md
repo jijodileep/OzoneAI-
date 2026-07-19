@@ -228,7 +228,7 @@ Full design: [financial-year.md](financial-year.md).
 ### Isolation rules (non-negotiable)
 
 1. After login, **all** business EF/SQL uses the **tenant connection** â€” never the catalog for sales/stock.
-2. Catalog stores host, database name, credentials (encrypted at rest); rotate via SuperAdmin.
+2. Catalog stores database **name** on `companies`; **host/user/password** in separate `tenant_db_credentials` (Write + optional Read); rotate via SuperAdmin.
 3. Meilisearch: **separate index per company** (e.g. `items_{companyKey}`) or single index with mandatory `companyKey` filter â€” prefer **index-per-company** for hard isolation.
 4. MinIO prefix: `{companyKey}/...`.
 5. Offline sync device bound to one `companyKey` / one tenant DB.

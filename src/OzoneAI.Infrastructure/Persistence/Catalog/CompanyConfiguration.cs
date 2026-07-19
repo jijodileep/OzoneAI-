@@ -27,18 +27,6 @@ internal sealed class CompanyConfiguration : IEntityTypeConfiguration<Company>
             .HasMaxLength(128)
             .IsRequired();
 
-        builder.Property(x => x.DbHost)
-            .HasMaxLength(256)
-            .IsRequired();
-
-        builder.Property(x => x.DbUsername)
-            .HasMaxLength(128)
-            .IsRequired();
-
-        builder.Property(x => x.DbPasswordProtected)
-            .HasMaxLength(1024)
-            .IsRequired();
-
         builder.Property(x => x.Status)
             .HasConversion<string>()
             .HasMaxLength(32)
