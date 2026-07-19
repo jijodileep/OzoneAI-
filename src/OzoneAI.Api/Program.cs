@@ -125,6 +125,61 @@ app.MapPost("/v1/platform/tenants/metrics/refresh", async (
     return Results.Ok(result);
 }).RequireAuthorization("SuperAdminOnly");
 
+app.MapGet("/v1/platform/tenants/{companyId:guid}", async (
+    Guid companyId,
+    ITenantLifecycleService lifecycle,
+    CancellationToken ct) =>
+{
+    var detail = await lifecycle.GetAsync(companyId, ct);
+    return detail is null ? Results.NotFound() : Results.Ok(detail);
+}).RequireAuthorization("SuperAdminOnly");
+
+app.MapPost("/v1/platform/tenants/{companyId:guid}/suspend", async (
+    Guid companyId,
+    ITenantLifecycleService lifecycle,
+    CancellationToken ct) =>
+{
+    try
+    {
+        await lifecycle.SuspendAsync(companyId, ct);
+        var detail = await lifecycle.GetAsync(companyId, ct);
+        return Results.Ok(detail);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization("SuperAdminOnly");
+
+app.MapPost("/v1/platform/tenants/{companyId:guid}/activate", async (
+    Guid companyId,
+    ITenantLifecycleService lifecycle,
+    CancellationToken ct) =>
+{
+    try
+    {
+        await lifecycle.ActivateAsync(companyId, ct);
+        var detail = await lifecycle.GetAsync(companyId, ct);
+        return Results.Ok(detail);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}).RequireAuthorization("SuperAdminOnly");
+
+/// <summary>Preflight for company-key login (E3.1). Suspended tenants are rejected here.</summary>
+app.MapPost("/v1/auth/company-access", async (
+    CompanyAccessRequest body,
+    ITenantLifecycleService lifecycle,
+    CancellationToken ct) =>
+{
+    var result = await lifecycle.CheckLoginAccessAsync(body.CompanyKey, ct);
+    return result.Allowed
+        ? Results.Ok(result)
+        : Results.Json(result, statusCode: StatusCodes.Status403Forbidden);
+}).AllowAnonymous();
+
 app.MapGet("/catalog/companies/count", async (CatalogDbContext db, CancellationToken ct) =>
 {
     var count = await db.Companies.CountAsync(ct);
@@ -317,5 +372,7 @@ static async Task SeedCatalogAsync(CatalogDbContext catalog, IServiceProvider se
 internal sealed record SwitchFyRequest(Guid FinancialYearId);
 
 internal sealed record PlatformLoginRequest(string Username, string Password);
+
+internal sealed record CompanyAccessRequest(string CompanyKey);
 
 public partial class Program;

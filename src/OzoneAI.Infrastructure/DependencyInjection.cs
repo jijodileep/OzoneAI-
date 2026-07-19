@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<TenantDataSeeder>();
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
         services.AddScoped<ITenantMetricsService, TenantMetricsService>();
+        services.AddScoped<ITenantLifecycleService, TenantLifecycleService>();
 
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher<PlatformUser>, PasswordHasher<PlatformUser>>();

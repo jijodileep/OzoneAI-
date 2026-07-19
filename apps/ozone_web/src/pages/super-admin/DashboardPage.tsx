@@ -199,7 +199,13 @@ export function SuperAdminDashboardPage() {
             dataSource={tenants}
             pagination={false}
             columns={[
-              { title: 'Name', dataIndex: 'name' },
+              {
+                title: 'Name',
+                dataIndex: 'name',
+                render: (name: string, row: TenantRow) => (
+                  <Link to={`/super-admin/tenants/${row.id}`}>{name}</Link>
+                ),
+              },
               { title: 'Key', dataIndex: 'companyKey' },
               { title: 'Database', dataIndex: 'databaseName' },
               { title: 'Status', dataIndex: 'status' },
@@ -221,6 +227,13 @@ export function SuperAdminDashboardPage() {
                 title: 'Created',
                 dataIndex: 'createdAt',
                 render: (v: string) => new Date(v).toLocaleString(),
+              },
+              {
+                title: '',
+                key: 'open',
+                render: (_: unknown, row: TenantRow) => (
+                  <Link to={`/super-admin/tenants/${row.id}`}>Open</Link>
+                ),
               },
             ]}
           />
