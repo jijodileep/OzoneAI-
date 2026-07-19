@@ -2,6 +2,7 @@ namespace OzoneAI.Domain.Catalog;
 
 /// <summary>
 /// Platform registry row in ozone_catalog. One row per tenant database.
+/// Connection secrets live in <see cref="TenantDbCredential"/> — not on this row.
 /// </summary>
 public class Company
 {
@@ -12,17 +13,8 @@ public class Company
     /// <summary>Unique login key; tenant DB name is ozone_t_{CompanyKey}.</summary>
     public string CompanyKey { get; set; } = string.Empty;
 
+    /// <summary>Logical database name (e.g. ozone_t_demo).</summary>
     public string DatabaseName { get; set; } = string.Empty;
-
-    /// <summary>Npgsql host for the tenant DB (may equal catalog host).</summary>
-    public string DbHost { get; set; } = "postgres-catalog";
-
-    public int DbPort { get; set; } = 5432;
-
-    public string DbUsername { get; set; } = string.Empty;
-
-    /// <summary>Encrypted at rest in later stories; plain for local scaffold only.</summary>
-    public string DbPasswordProtected { get; set; } = string.Empty;
 
     public CompanyStatus Status { get; set; } = CompanyStatus.Active;
 
@@ -43,4 +35,6 @@ public class Company
     public Guid? PlanId { get; set; }
 
     public SubscriptionPlan? Plan { get; set; }
+
+    public ICollection<TenantDbCredential> DbCredentials { get; set; } = new List<TenantDbCredential>();
 }

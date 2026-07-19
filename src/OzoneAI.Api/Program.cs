@@ -54,6 +54,27 @@ app.MapGet("/catalog/plans", async (CatalogDbContext db, CancellationToken ct) =
     return Results.Ok(plans);
 });
 
+app.MapGet("/catalog/companies/{companyId:guid}/db-credentials", async (
+    Guid companyId,
+    CatalogDbContext db,
+    CancellationToken ct) =>
+{
+    var rows = await db.TenantDbCredentials.AsNoTracking()
+        .Where(x => x.CompanyId == companyId && x.IsActive)
+        .Select(x => new
+        {
+            x.Id,
+            Role = x.Role.ToString(),
+            x.Host,
+            x.Port,
+            x.Username,
+            PasswordSet = x.PasswordProtected.Length > 0,
+            x.RotatedAt
+        })
+        .ToListAsync(ct);
+    return Results.Ok(rows);
+});
+
 app.MapGet("/v1/financial-years", async (TenantDbContext db, CancellationToken ct) =>
 {
     var years = await db.FinancialYears.AsNoTracking()

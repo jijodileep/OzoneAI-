@@ -9,6 +9,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
     public DbSet<SubscriptionPlan> SubscriptionPlans => Set<SubscriptionPlan>();
 
+    public DbSet<TenantDbCredential> TenantDbCredentials => Set<TenantDbCredential>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(
