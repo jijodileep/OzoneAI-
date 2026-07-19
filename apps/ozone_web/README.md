@@ -21,4 +21,5 @@ npm run build
 ## Notes
 
 - Shell layout: sider + header with `FinancialYearSwitcher`.
-- Auth and tenant login land in E2/E3.
+- Super Admin: `/super-admin/login` (seed `superadmin` / `ChangeMe!123` unless overridden in API config).
+- Tenant company-key login: E3.1.
