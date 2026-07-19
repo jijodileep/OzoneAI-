@@ -31,6 +31,8 @@ type TenantRow = {
   status: string
   createdAt: string
   lastUsedAt?: string | null
+  activeUsers30d: number
+  totalUsersCached: number
 }
 
 type CreateTenantForm = {
@@ -50,6 +52,7 @@ export function SuperAdminDashboardPage() {
   const [error, setError] = useState<string>()
   const [createOpen, setCreateOpen] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [form] = Form.useForm<CreateTenantForm>()
   const {
     token: { colorBgContainer, borderRadiusLG },
@@ -98,6 +101,29 @@ export function SuperAdminDashboardPage() {
   function logout() {
     clearPlatformToken()
     navigate('/super-admin/login', { replace: true })
+  }
+
+  async function refreshMetrics() {
+    setRefreshing(true)
+    try {
+      const res = await fetch('/v1/platform/tenants/metrics/refresh', {
+        method: 'POST',
+        headers: platformAuthHeaders(),
+      })
+      if (res.status === 401) {
+        clearPlatformToken()
+        navigate('/super-admin/login', { replace: true })
+        return
+      }
+      if (!res.ok) throw new Error('Metrics refresh failed')
+      const body = (await res.json()) as { tenantsUpdated: number; tenantsFailed: number }
+      message.success(`Metrics updated (${body.tenantsUpdated} ok, ${body.tenantsFailed} failed)`)
+      await loadTenants()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Metrics refresh failed')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   async function onCreate(values: CreateTenantForm) {
@@ -156,9 +182,14 @@ export function SuperAdminDashboardPage() {
                 Catalog-scoped ({me?.scope ?? '…'} / {me?.role ?? '…'})
               </Typography.Paragraph>
             </div>
-            <Button type="primary" onClick={() => setCreateOpen(true)}>
-              Create tenant
-            </Button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button onClick={() => void refreshMetrics()} loading={refreshing}>
+                Refresh metrics
+              </Button>
+              <Button type="primary" onClick={() => setCreateOpen(true)}>
+                Create tenant
+              </Button>
+            </div>
           </div>
 
           {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} /> : null}
@@ -172,6 +203,20 @@ export function SuperAdminDashboardPage() {
               { title: 'Key', dataIndex: 'companyKey' },
               { title: 'Database', dataIndex: 'databaseName' },
               { title: 'Status', dataIndex: 'status' },
+              {
+                title: 'Last used',
+                dataIndex: 'lastUsedAt',
+                render: (v: string | null | undefined) =>
+                  v ? new Date(v).toLocaleString() : '—',
+              },
+              {
+                title: 'Active users (30d)',
+                dataIndex: 'activeUsers30d',
+              },
+              {
+                title: 'Total users',
+                dataIndex: 'totalUsersCached',
+              },
               {
                 title: 'Created',
                 dataIndex: 'createdAt',

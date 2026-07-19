@@ -110,6 +110,14 @@ app.MapPost("/v1/platform/tenants", async (
     }
 }).RequireAuthorization("SuperAdminOnly");
 
+app.MapPost("/v1/platform/tenants/metrics/refresh", async (
+    ITenantMetricsService metrics,
+    CancellationToken ct) =>
+{
+    var result = await metrics.RefreshAllAsync(ct);
+    return Results.Ok(result);
+}).RequireAuthorization("SuperAdminOnly");
+
 app.MapGet("/catalog/companies/count", async (CatalogDbContext db, CancellationToken ct) =>
 {
     var count = await db.Companies.CountAsync(ct);

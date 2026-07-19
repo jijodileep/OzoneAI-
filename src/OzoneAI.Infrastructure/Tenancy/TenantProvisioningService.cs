@@ -30,7 +30,9 @@ public sealed partial class TenantProvisioningService(
                 x.DatabaseName,
                 x.Status.ToString(),
                 x.CreatedAt,
-                x.LastUsedAt))
+                x.LastUsedAt,
+                x.ActiveUsers30d,
+                x.TotalUsersCached))
             .ToListAsync(cancellationToken);
     }
 

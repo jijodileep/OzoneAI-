@@ -73,7 +73,9 @@ public sealed class TenantDataSeeder(IPasswordHasher<TenantUser> passwordHasher)
                     : options.AdminDisplayName.Trim(),
                 Role = TenantRoles.Admin,
                 IsActive = true,
-                CreatedAt = DateTimeOffset.UtcNow
+                CreatedAt = DateTimeOffset.UtcNow,
+                // Seed as recently active so Super Admin metrics are non-zero after refresh.
+                LastLoginAt = DateTimeOffset.UtcNow
             };
             user.PasswordHash = passwordHasher.HashPassword(user, options.AdminPassword);
             tenant.Users.Add(user);

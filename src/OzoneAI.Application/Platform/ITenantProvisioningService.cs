@@ -36,4 +36,6 @@ public sealed record TenantSummaryDto(
     string DatabaseName,
     string Status,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? LastUsedAt);
+    DateTimeOffset? LastUsedAt,
+    int ActiveUsers30d,
+    int TotalUsersCached);
