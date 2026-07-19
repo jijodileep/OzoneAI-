@@ -75,6 +75,8 @@ services:
     environment:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Catalog: Host=postgres-catalog;Port=5432;Database=ozone_catalog;Username=ozone;Password=ozone_dev_password
+      ConnectionStrings__Tenant: Host=postgres-catalog;Port=5432;Database=ozone_t_demo;Username=ozone;Password=ozone_dev_password
+      Jwt__SigningKey: OzoneAI-dev-signing-key-change-me-32chars!
       Meilisearch__Url: http://meilisearch:7700
       Meilisearch__ApiKey: ozoneai_meili_dev_master_key_change_me
     ports:

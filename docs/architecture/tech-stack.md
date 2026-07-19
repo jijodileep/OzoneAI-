@@ -199,7 +199,7 @@ Same isolation model as legacy Ozone / CPZSAS: **each company gets its own Postg
 | **`ozone_t_{companyKey}` (per company)** | Full ERP data: users, items, sales, stock, ledgers, CRM, etc. |
 | Optional **read replica** of a tenant DB | For large companies only â€” reports/AI off the write DB |
 
-Login: **company key + user + password** â†’ lookup catalog â†’ open **that companyâ€™s DB** â†’ JWT carries `company_id`, `company_key`, connection name (or opaque tenant handle), roles.
+Login: **company key + user + password** â†’ lookup catalog â†’ open **that companyâ€™s DB** â†’ JWT carries `company_id`, `company_key`, **`financial_year_id`**, connection name (or opaque tenant handle), roles.
 
 ```mermaid
 flowchart LR
@@ -213,10 +213,22 @@ flowchart LR
   Api --> Ai[SK tools on that tenant DB only]
 ```
 
+### Financial year (committed): dimension in tenant DB — **not** a new database
+
+Full design: [financial-year.md](financial-year.md).
+
+| Rule | Detail |
+|------|--------|
+| Scope key | `FinancialYearId` on all year-bound transactions |
+| Openings | Separate `ledger_opening_balances` + `stock_opening_balances` per FY |
+| Switch | Session/JWT only — no DB provision |
+| Year close | Writes next FY openings in the **same** company DB |
+| Company address / plans | Tenant `company_profile`; catalog `subscription_plans` → `companies.PlanId` |
+
 ### Isolation rules (non-negotiable)
 
 1. After login, **all** business EF/SQL uses the **tenant connection** â€” never the catalog for sales/stock.
-2. Catalog stores host, database name, credentials (encrypted at rest); rotate via SuperAdmin.
+2. Catalog stores database **name** on `companies`; **host/user/password** in separate `tenant_db_credentials` (Write + optional Read); rotate via SuperAdmin.
 3. Meilisearch: **separate index per company** (e.g. `items_{companyKey}`) or single index with mandatory `companyKey` filter â€” prefer **index-per-company** for hard isolation.
 4. MinIO prefix: `{companyKey}/...`.
 5. Offline sync device bound to one `companyKey` / one tenant DB.

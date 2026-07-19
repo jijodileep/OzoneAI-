@@ -24,6 +24,8 @@ This folder contains **one requirements file per screen/API** extracted from the
 | Ledgers | [accounts_master/ledgers.md](accounts_master/ledgers.md) |
 | Stock journal / physical | [stock/](stock/) |
 | Users & permissions | [settings/users.md](settings/users.md), [settings/menu-to-user.md](settings/menu-to-user.md) |
+| Financial year / openings | [settings/financial-year.md](settings/financial-year.md), [../../architecture/financial-year.md](../../architecture/financial-year.md) |
+| Company profile / address | [settings/company-profile.md](settings/company-profile.md) |
 | POS | [pos/pos-billing.md](pos/pos-billing.md) |
 | CRM | [crm/enquiry-register.md](crm/enquiry-register.md) |
 | HR | [hr/employee.md](hr/employee.md) |
