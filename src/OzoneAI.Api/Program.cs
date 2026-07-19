@@ -1,8 +1,12 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OzoneAI.Application.FinancialYears;
+using OzoneAI.Application.Platform;
 using OzoneAI.Domain.Catalog;
 using OzoneAI.Domain.Tenant;
 using OzoneAI.Infrastructure;
+using OzoneAI.Infrastructure.Auth;
 using OzoneAI.Infrastructure.Persistence.Catalog;
 using OzoneAI.Infrastructure.Persistence.Tenant;
 
@@ -20,7 +24,7 @@ await using (var scope = app.Services.CreateAsyncScope())
 {
     var catalog = scope.ServiceProvider.GetRequiredService<CatalogDbContext>();
     await catalog.Database.MigrateAsync();
-    await SeedCatalogAsync(catalog);
+    await SeedCatalogAsync(catalog, scope.ServiceProvider);
 
     var tenant = scope.ServiceProvider.GetRequiredService<TenantDbContext>();
     await tenant.Database.MigrateAsync();
@@ -32,6 +36,9 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Ok(new
 {
@@ -39,11 +46,34 @@ app.MapGet("/", () => Results.Ok(new
     status = "ok"
 }));
 
+app.MapPost("/v1/platform/auth/login", async (
+    PlatformLoginRequest body,
+    IPlatformAuthService auth,
+    CancellationToken ct) =>
+{
+    var result = await auth.LoginAsync(body.Username, body.Password, ct);
+    return result is null
+        ? Results.Unauthorized()
+        : Results.Ok(result);
+}).AllowAnonymous();
+
+app.MapGet("/v1/platform/me", (ClaimsPrincipal user) =>
+{
+    var id = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+    return Results.Ok(new
+    {
+        id,
+        username = user.Identity?.Name,
+        role = user.FindFirstValue(ClaimTypes.Role),
+        scope = user.FindFirstValue(JwtTokenService.AuthScopeClaim)
+    });
+}).RequireAuthorization("SuperAdminOnly");
+
 app.MapGet("/catalog/companies/count", async (CatalogDbContext db, CancellationToken ct) =>
 {
     var count = await db.Companies.CountAsync(ct);
     return Results.Ok(new { companies = count });
-});
+}).RequireAuthorization("SuperAdminOnly");
 
 app.MapGet("/catalog/plans", async (CatalogDbContext db, CancellationToken ct) =>
 {
@@ -52,7 +82,7 @@ app.MapGet("/catalog/plans", async (CatalogDbContext db, CancellationToken ct) =
         .Select(x => new { x.Id, x.Name, x.MaxUsers, x.MaxGodowns, x.IsActive })
         .ToListAsync(ct);
     return Results.Ok(plans);
-});
+}).RequireAuthorization("SuperAdminOnly");
 
 app.MapGet("/catalog/companies/{companyId:guid}/db-credentials", async (
     Guid companyId,
@@ -73,7 +103,7 @@ app.MapGet("/catalog/companies/{companyId:guid}/db-credentials", async (
         })
         .ToListAsync(ct);
     return Results.Ok(rows);
-});
+}).RequireAuthorization("SuperAdminOnly");
 
 app.MapGet("/v1/financial-years", async (TenantDbContext db, CancellationToken ct) =>
 {
@@ -121,7 +151,7 @@ app.MapGet("/v1/company/profile", async (TenantDbContext db, CancellationToken c
 
 app.Run();
 
-static async Task SeedCatalogAsync(CatalogDbContext catalog)
+static async Task SeedCatalogAsync(CatalogDbContext catalog, IServiceProvider services)
 {
     if (!await catalog.SubscriptionPlans.AnyAsync())
     {
@@ -136,6 +166,25 @@ static async Task SeedCatalogAsync(CatalogDbContext catalog)
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow
         });
+        await catalog.SaveChangesAsync();
+    }
+
+    var config = services.GetRequiredService<IConfiguration>();
+    var username = config["PlatformAuth:SeedUsername"] ?? "superadmin";
+    if (!await catalog.PlatformUsers.AnyAsync(x => x.Username == username))
+    {
+        var hasher = services.GetRequiredService<IPasswordHasher<PlatformUser>>();
+        var password = config["PlatformAuth:SeedPassword"] ?? "ChangeMe!123";
+        var user = new PlatformUser
+        {
+            Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            Username = username,
+            DisplayName = config["PlatformAuth:SeedDisplayName"] ?? "Platform Super Admin",
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        user.PasswordHash = hasher.HashPassword(user, password);
+        catalog.PlatformUsers.Add(user);
         await catalog.SaveChangesAsync();
     }
 }
@@ -191,5 +240,7 @@ static async Task SeedTenantAsync(TenantDbContext tenant)
 }
 
 internal sealed record SwitchFyRequest(Guid FinancialYearId);
+
+internal sealed record PlatformLoginRequest(string Username, string Password);
 
 public partial class Program;

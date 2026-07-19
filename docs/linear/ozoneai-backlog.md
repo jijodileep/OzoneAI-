@@ -13,7 +13,7 @@ Use this with [ozoneai-backlog.csv](ozoneai-backlog.csv). Create each row as a L
 
 ## E2 — Super Admin (P0/P1)
 
-- [ ] **E2.1** Super Admin auth (platform users)  
+- [x] **E2.1** Super Admin auth (platform users)  
 - [ ] **E2.2** Create tenant → `ozone_t_{key}` DB + seed admin  
 - [ ] **E2.3** Tenant list: last used, active users  
 - [ ] **E2.4** Tenant detail + suspend/activate  

@@ -36,3 +36,27 @@
   padding: 24px;
   min-height: 280px;
 }
+
+.super-admin-login {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(15, 61, 46, 0.12), transparent),
+    linear-gradient(160deg, #e8f0ec 0%, #f5f7f6 45%, #dfe8e3 100%);
+}
+
+.super-admin-login-card {
+  width: min(420px, 100%);
+  box-shadow: none;
+  border: 1px solid #d9e2dd;
+}
+
+.super-admin-brand {
+  margin-top: 0 !important;
+  margin-bottom: 4px !important;
+  color: #0f3d2e;
+  letter-spacing: -0.03em;
+}

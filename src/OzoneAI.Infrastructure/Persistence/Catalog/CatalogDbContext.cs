@@ -11,6 +11,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
     public DbSet<TenantDbCredential> TenantDbCredentials => Set<TenantDbCredential>();
 
+    public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(
