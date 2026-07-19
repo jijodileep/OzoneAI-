@@ -80,10 +80,7 @@ public sealed partial class TenantProvisioningService(
                 .Select(x => (Guid?)x.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-        var host = configuration["TenantProvisioning:DefaultHost"] ?? "localhost";
-        var port = int.TryParse(configuration["TenantProvisioning:DefaultPort"], out var p) ? p : 5433;
-        var dbUser = configuration["TenantProvisioning:DbUsername"] ?? "ozone";
-        var dbPassword = configuration["TenantProvisioning:DbPassword"] ?? "ozone_dev_password";
+        var (host, port, dbUser, dbPassword) = TenantDbEndpoint.Resolve(configuration);
 
         var company = new Company
         {

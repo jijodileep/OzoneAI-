@@ -108,6 +108,13 @@ app.MapPost("/v1/platform/tenants", async (
     {
         return Results.Conflict(new { error = ex.Message });
     }
+    catch (Exception ex)
+    {
+        return Results.Problem(
+            detail: ex.Message,
+            title: "Tenant provisioning failed",
+            statusCode: StatusCodes.Status500InternalServerError);
+    }
 }).RequireAuthorization("SuperAdminOnly");
 
 app.MapPost("/v1/platform/tenants/metrics/refresh", async (
@@ -244,10 +251,7 @@ static async Task SeedCatalogAsync(CatalogDbContext catalog, IServiceProvider se
             .Select(x => (Guid?)x.Id)
             .FirstOrDefaultAsync();
 
-        var host = config["TenantProvisioning:DefaultHost"] ?? "localhost";
-        var port = int.TryParse(config["TenantProvisioning:DefaultPort"], out var p) ? p : 5433;
-        var dbUser = config["TenantProvisioning:DbUsername"] ?? "ozone";
-        var dbPassword = config["TenantProvisioning:DbPassword"] ?? "ozone_dev_password";
+        var (host, port, dbUser, dbPassword) = TenantDbEndpoint.Resolve(config);
 
         var companyId = Guid.Parse("33333333-3333-3333-3333-333333333333");
         catalog.Companies.Add(new Company
@@ -276,6 +280,37 @@ static async Task SeedCatalogAsync(CatalogDbContext catalog, IServiceProvider se
             CreatedAt = DateTimeOffset.UtcNow
         });
         await catalog.SaveChangesAsync();
+    }
+    else
+    {
+        // Heal demo credentials when switching between Docker/local Catalog hosts.
+        var (host, port, dbUser, dbPassword) = TenantDbEndpoint.Resolve(config);
+        var demo = await catalog.Companies.AsNoTracking()
+            .FirstAsync(x => x.CompanyKey == "demo");
+        var creds = await catalog.TenantDbCredentials
+            .Where(x => x.CompanyId == demo.Id && x.IsActive)
+            .ToListAsync();
+        var changed = false;
+        foreach (var cred in creds)
+        {
+            if (cred.Host == host && cred.Port == port
+                && cred.Username == dbUser && cred.PasswordProtected == dbPassword)
+            {
+                continue;
+            }
+
+            cred.Host = host;
+            cred.Port = port;
+            cred.Username = dbUser;
+            cred.PasswordProtected = dbPassword;
+            cred.RotatedAt = DateTimeOffset.UtcNow;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await catalog.SaveChangesAsync();
+        }
     }
 }
 
