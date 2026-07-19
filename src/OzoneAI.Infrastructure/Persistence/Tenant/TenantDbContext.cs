@@ -25,6 +25,8 @@ public sealed class TenantDbContext : DbContext
     public DbSet<StockOpeningBalance> StockOpeningBalances => Set<StockOpeningBalance>();
     public DbSet<SampleSaleDocument> SampleSales => Set<SampleSaleDocument>();
 
+    public DbSet<TenantUser> Users => Set<TenantUser>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(

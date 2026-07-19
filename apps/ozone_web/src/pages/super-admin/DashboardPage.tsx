@@ -1,6 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { Button, Layout, Typography, theme } from 'antd'
+import {
+  Alert,
+  Button,
+  Form,
+  Input,
+  Layout,
+  Modal,
+  Table,
+  Typography,
+  message,
+  theme,
+} from 'antd'
 import { clearPlatformToken, getPlatformToken, platformAuthHeaders } from '../../auth/platformToken'
 
 const { Header, Content } = Layout
@@ -12,39 +23,64 @@ type MeResponse = {
   scope?: string
 }
 
+type TenantRow = {
+  id: string
+  name: string
+  companyKey: string
+  databaseName: string
+  status: string
+  createdAt: string
+  lastUsedAt?: string | null
+}
+
+type CreateTenantForm = {
+  name: string
+  companyKey: string
+  adminUsername: string
+  adminPassword: string
+  adminDisplayName?: string
+  timeZoneId?: string
+}
+
 export function SuperAdminDashboardPage() {
   const navigate = useNavigate()
   const token = getPlatformToken()
   const [me, setMe] = useState<MeResponse | null>(null)
-  const [companyCount, setCompanyCount] = useState<number | null>(null)
+  const [tenants, setTenants] = useState<TenantRow[]>([])
   const [error, setError] = useState<string>()
+  const [createOpen, setCreateOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+  const [form] = Form.useForm<CreateTenantForm>()
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken()
+
+  const loadTenants = useCallback(async () => {
+    const res = await fetch('/v1/platform/tenants', { headers: platformAuthHeaders() })
+    if (res.status === 401) {
+      clearPlatformToken()
+      navigate('/super-admin/login', { replace: true })
+      return
+    }
+    if (!res.ok) throw new Error('Failed to load tenants')
+    setTenants((await res.json()) as TenantRow[])
+  }, [navigate])
 
   useEffect(() => {
     if (!token) return
     let cancelled = false
     async function load() {
       try {
-        const [meRes, countRes] = await Promise.all([
-          fetch('/v1/platform/me', { headers: platformAuthHeaders() }),
-          fetch('/catalog/companies/count', { headers: platformAuthHeaders() }),
-        ])
-        if (meRes.status === 401 || countRes.status === 401) {
+        const meRes = await fetch('/v1/platform/me', { headers: platformAuthHeaders() })
+        if (meRes.status === 401) {
           clearPlatformToken()
           navigate('/super-admin/login', { replace: true })
           return
         }
-        if (!meRes.ok || !countRes.ok) {
-          throw new Error('Failed to load platform session')
-        }
+        if (!meRes.ok) throw new Error('Failed to load platform session')
         const meJson = (await meRes.json()) as MeResponse
-        const countJson = (await countRes.json()) as { companies: number }
-        if (!cancelled) {
-          setMe(meJson)
-          setCompanyCount(countJson.companies)
-        }
+        if (!cancelled) setMe(meJson)
+        await loadTenants()
       } catch {
         if (!cancelled) setError('Could not load Super Admin session.')
       }
@@ -53,7 +89,7 @@ export function SuperAdminDashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [navigate, token])
+  }, [navigate, token, loadTenants])
 
   if (!token) {
     return <Navigate to="/super-admin/login" replace />
@@ -62,6 +98,39 @@ export function SuperAdminDashboardPage() {
   function logout() {
     clearPlatformToken()
     navigate('/super-admin/login', { replace: true })
+  }
+
+  async function onCreate(values: CreateTenantForm) {
+    setCreating(true)
+    try {
+      const res = await fetch('/v1/platform/tenants', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...platformAuthHeaders(),
+        },
+        body: JSON.stringify({
+          name: values.name,
+          companyKey: values.companyKey,
+          adminUsername: values.adminUsername,
+          adminPassword: values.adminPassword,
+          adminDisplayName: values.adminDisplayName,
+          timeZoneId: values.timeZoneId || 'Asia/Kolkata',
+        }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        throw new Error(body?.error ?? `Create failed (${res.status})`)
+      }
+      message.success('Tenant provisioned')
+      setCreateOpen(false)
+      form.resetFields()
+      await loadTenants()
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Create failed')
+    } finally {
+      setCreating(false)
+    }
   }
 
   return (
@@ -78,24 +147,99 @@ export function SuperAdminDashboardPage() {
           className="app-panel"
           style={{ background: colorBgContainer, borderRadius: borderRadiusLG }}
         >
-          <Typography.Title level={3} style={{ marginTop: 0 }}>
-            Platform console
-          </Typography.Title>
-          {error ? (
-            <Typography.Paragraph type="danger">{error}</Typography.Paragraph>
-          ) : (
-            <>
-              <Typography.Paragraph type="secondary">
-                Catalog-scoped session ({me?.scope ?? '…'} / {me?.role ?? '…'}).
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+            <div>
+              <Typography.Title level={3} style={{ marginTop: 0, marginBottom: 4 }}>
+                Tenants
+              </Typography.Title>
+              <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                Catalog-scoped ({me?.scope ?? '…'} / {me?.role ?? '…'})
               </Typography.Paragraph>
-              <Typography.Paragraph>
-                Registered companies: <strong>{companyCount ?? '…'}</strong>
-              </Typography.Paragraph>
-            </>
-          )}
-          <Link to="/">Tenant admin shell</Link>
+            </div>
+            <Button type="primary" onClick={() => setCreateOpen(true)}>
+              Create tenant
+            </Button>
+          </div>
+
+          {error ? <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} /> : null}
+
+          <Table
+            rowKey="id"
+            dataSource={tenants}
+            pagination={false}
+            columns={[
+              { title: 'Name', dataIndex: 'name' },
+              { title: 'Key', dataIndex: 'companyKey' },
+              { title: 'Database', dataIndex: 'databaseName' },
+              { title: 'Status', dataIndex: 'status' },
+              {
+                title: 'Created',
+                dataIndex: 'createdAt',
+                render: (v: string) => new Date(v).toLocaleString(),
+              },
+            ]}
+          />
+
+          <div style={{ marginTop: 16 }}>
+            <Link to="/">Tenant admin shell</Link>
+          </div>
         </div>
       </Content>
+
+      <Modal
+        title="Create tenant"
+        open={createOpen}
+        onCancel={() => setCreateOpen(false)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form
+          form={form}
+          layout="vertical"
+          onFinish={onCreate}
+          initialValues={{
+            adminUsername: 'admin',
+            timeZoneId: 'Asia/Kolkata',
+          }}
+        >
+          <Form.Item label="Company name" name="name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Company key"
+            name="companyKey"
+            extra="Lowercase; becomes ozone_t_{key}"
+            rules={[
+              { required: true },
+              {
+                pattern: /^[a-z][a-z0-9_]{1,31}$/,
+                message: '2–32 chars: a-z, then a-z/0-9/_',
+              },
+            ]}
+          >
+            <Input placeholder="acme" />
+          </Form.Item>
+          <Form.Item label="Admin username" name="adminUsername" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item
+            label="Admin password"
+            name="adminPassword"
+            rules={[{ required: true, min: 8 }]}
+          >
+            <Input.Password />
+          </Form.Item>
+          <Form.Item label="Admin display name" name="adminDisplayName">
+            <Input />
+          </Form.Item>
+          <Form.Item label="Timezone" name="timeZoneId">
+            <Input />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" block loading={creating}>
+            Provision database
+          </Button>
+        </Form>
+      </Modal>
     </Layout>
   )
 }

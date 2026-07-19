@@ -9,6 +9,7 @@ using OzoneAI.Infrastructure;
 using OzoneAI.Infrastructure.Auth;
 using OzoneAI.Infrastructure.Persistence.Catalog;
 using OzoneAI.Infrastructure.Persistence.Tenant;
+using OzoneAI.Infrastructure.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -28,7 +29,19 @@ await using (var scope = app.Services.CreateAsyncScope())
 
     var tenant = scope.ServiceProvider.GetRequiredService<TenantDbContext>();
     await tenant.Database.MigrateAsync();
-    await SeedTenantAsync(tenant);
+    var seeder = scope.ServiceProvider.GetRequiredService<TenantDataSeeder>();
+    await seeder.SeedDefaultsAsync(
+        tenant,
+        new TenantSeedOptions(
+            LegalName: "Demo Company",
+            Address: "Demo Address",
+            Phone: "0000000000",
+            Email: null,
+            TaxType: "GST",
+            CurrencyCode: "INR",
+            AdminUsername: "admin",
+            AdminPassword: "ChangeMe!123",
+            AdminDisplayName: "Demo Admin"));
 }
 
 if (app.Environment.IsDevelopment())
@@ -67,6 +80,34 @@ app.MapGet("/v1/platform/me", (ClaimsPrincipal user) =>
         role = user.FindFirstValue(ClaimTypes.Role),
         scope = user.FindFirstValue(JwtTokenService.AuthScopeClaim)
     });
+}).RequireAuthorization("SuperAdminOnly");
+
+app.MapGet("/v1/platform/tenants", async (
+    ITenantProvisioningService provisioning,
+    CancellationToken ct) =>
+{
+    var tenants = await provisioning.ListAsync(ct);
+    return Results.Ok(tenants);
+}).RequireAuthorization("SuperAdminOnly");
+
+app.MapPost("/v1/platform/tenants", async (
+    CreateTenantRequest body,
+    ITenantProvisioningService provisioning,
+    CancellationToken ct) =>
+{
+    try
+    {
+        var result = await provisioning.CreateAsync(body, ct);
+        return Results.Created($"/v1/platform/tenants/{result.CompanyId}", result);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Conflict(new { error = ex.Message });
+    }
 }).RequireAuthorization("SuperAdminOnly");
 
 app.MapGet("/catalog/companies/count", async (CatalogDbContext db, CancellationToken ct) =>
@@ -187,56 +228,47 @@ static async Task SeedCatalogAsync(CatalogDbContext catalog, IServiceProvider se
         catalog.PlatformUsers.Add(user);
         await catalog.SaveChangesAsync();
     }
-}
 
-static async Task SeedTenantAsync(TenantDbContext tenant)
-{
-    if (!await tenant.CompanyProfiles.AnyAsync())
+    if (!await catalog.Companies.AnyAsync(x => x.CompanyKey == "demo"))
     {
-        tenant.CompanyProfiles.Add(new CompanyProfile
-        {
-            Id = Guid.NewGuid(),
-            LegalName = "Demo Company",
-            Address = "Demo Address",
-            Phone = "0000000000",
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-        tenant.CompanySettings.Add(new CompanySettings
-        {
-            Id = Guid.NewGuid(),
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-        tenant.CompanyBranches.Add(new CompanyBranch
-        {
-            Id = Guid.NewGuid(),
-            Name = "Main",
-            Address = "Demo Address",
-            IsMain = true,
-            UpdatedAt = DateTimeOffset.UtcNow
-        });
-    }
+        var planId = await catalog.SubscriptionPlans.AsNoTracking()
+            .Where(x => x.IsActive)
+            .Select(x => (Guid?)x.Id)
+            .FirstOrDefaultAsync();
 
-    if (!await tenant.FinancialYears.AnyAsync())
-    {
-        var start = new DateOnly(DateTime.UtcNow.Year, 4, 1);
-        if (DateOnly.FromDateTime(DateTime.UtcNow) < start)
-        {
-            start = start.AddYears(-1);
-        }
+        var host = config["TenantProvisioning:DefaultHost"] ?? "localhost";
+        var port = int.TryParse(config["TenantProvisioning:DefaultPort"], out var p) ? p : 5433;
+        var dbUser = config["TenantProvisioning:DbUsername"] ?? "ozone";
+        var dbPassword = config["TenantProvisioning:DbPassword"] ?? "ozone_dev_password";
 
-        tenant.FinancialYears.Add(new FinancialYear
+        var companyId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+        catalog.Companies.Add(new Company
+        {
+            Id = companyId,
+            Name = "Demo Company",
+            CompanyKey = "demo",
+            DatabaseName = "ozone_t_demo",
+            Status = CompanyStatus.Active,
+            LegacyMigrationStatus = LegacyMigrationStatus.NotStarted,
+            TimeZoneId = "Asia/Kolkata",
+            PlanId = planId,
+            CreatedAt = DateTimeOffset.UtcNow,
+            TotalUsersCached = 1
+        });
+        catalog.TenantDbCredentials.Add(new TenantDbCredential
         {
             Id = Guid.NewGuid(),
-            Name = $"{start.Year}-{(start.Year + 1).ToString()[^2..]}",
-            StartDate = start,
-            EndDate = start.AddYears(1).AddDays(-1),
-            Status = FinancialYearStatus.Open,
-            IsDefault = true,
+            CompanyId = companyId,
+            Role = TenantDbCredentialRole.Write,
+            Host = host,
+            Port = port,
+            Username = dbUser,
+            PasswordProtected = dbPassword,
+            IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow
         });
+        await catalog.SaveChangesAsync();
     }
-
-    await tenant.SaveChangesAsync();
 }
 
 internal sealed record SwitchFyRequest(Guid FinancialYearId);
