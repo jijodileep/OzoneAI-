@@ -25,7 +25,8 @@ type Props = {
 };
 
 export function FinancialYearSwitcher({
-  apiBaseUrl = "http://localhost:5080",
+  /** Empty = same-origin (Vite proxy in dev). */
+  apiBaseUrl = "",
   onSwitched,
 }: Props) {
   const [years, setYears] = useState<FinancialYear[]>([]);

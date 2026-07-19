@@ -1,0 +1,38 @@
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-sider {
+  border-right: 1px solid #f0f0f0;
+}
+
+.app-brand {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f3d2e;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-inline: 24px;
+  border-bottom: 1px solid #f0f0f0;
+  height: 64px;
+  line-height: 64px;
+}
+
+.app-content {
+  margin: 24px;
+}
+
+.app-panel {
+  padding: 24px;
+  min-height: 280px;
+}

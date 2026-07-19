@@ -7,7 +7,7 @@ Use this with [ozoneai-backlog.csv](ozoneai-backlog.csv). Create each row as a L
 - [ ] **E1.1** Docker Compose: Postgres catalog + tenants, Redis, MinIO, Meilisearch  
 - [ ] **E1.2** ASP.NET Core solution skeleton (Clean Architecture) — `/health` 200  
 - [ ] **E1.3** Catalog DB EF migrations + Companies table  
-- [ ] **E1.4** React Vite + Ant Design shell  
+- [x] **E1.4** React Vite + Ant Design shell  
 - [ ] **E1.5** CI GitHub Actions: build API + web  
 - [ ] **E1.6** Cursor rules locked to tech-stack.md  
 
