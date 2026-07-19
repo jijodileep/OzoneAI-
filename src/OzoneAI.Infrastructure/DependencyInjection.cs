@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using OzoneAI.Application.FinancialYears;
+using OzoneAI.Infrastructure.FinancialYears;
 using OzoneAI.Infrastructure.Persistence.Catalog;
+using OzoneAI.Infrastructure.Persistence.Tenant;
 
 namespace OzoneAI.Infrastructure;
 
@@ -14,6 +17,20 @@ public static class DependencyInjection
 
         services.AddDbContext<CatalogDbContext>(options =>
             options.UseNpgsql(catalogConnection));
+
+        var tenantConnection = configuration.GetConnectionString("Tenant")
+            ?? catalogConnection.Replace("Database=ozone_catalog", "Database=ozone_t_demo", StringComparison.OrdinalIgnoreCase);
+
+        services.AddScoped<IFinancialYearContext, FinancialYearContext>();
+        services.AddDbContext<TenantDbContext>(options =>
+            options.UseNpgsql(tenantConnection));
+
+        services.AddSingleton<IFinancialYearGuard, FinancialYearGuard>();
+        services.AddSingleton<ILedgerBalanceCalculator, LedgerBalanceCalculator>();
+        services.AddSingleton<IStockQuantityCalculator, StockQuantityCalculator>();
+        services.AddScoped<IFinancialYearSwitchService, FinancialYearSwitchService>();
+        services.AddScoped<IYearCloseService, YearCloseService>();
+        services.AddScoped<IBalanceSheetService, BalanceSheetService>();
 
         return services;
     }
