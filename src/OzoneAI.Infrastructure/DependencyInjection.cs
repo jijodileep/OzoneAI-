@@ -11,6 +11,7 @@ using OzoneAI.Application.FinancialYears;
 using OzoneAI.Application.Platform;
 using OzoneAI.Application.Tenancy;
 using OzoneAI.Domain.Catalog;
+using OzoneAI.Domain.Tenant;
 using OzoneAI.Infrastructure.Auth;
 using OzoneAI.Infrastructure.FinancialYears;
 using OzoneAI.Infrastructure.Persistence.Catalog;
@@ -44,9 +45,12 @@ public static class DependencyInjection
         services.AddScoped<IYearCloseService, YearCloseService>();
         services.AddScoped<IBalanceSheetService, BalanceSheetService>();
         services.AddScoped<ITenantConnectionFactory, TenantConnectionFactory>();
+        services.AddScoped<TenantDataSeeder>();
+        services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
 
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
         services.AddSingleton<IPasswordHasher<PlatformUser>, PasswordHasher<PlatformUser>>();
+        services.AddSingleton<IPasswordHasher<TenantUser>, PasswordHasher<TenantUser>>();
         services.AddScoped<IPlatformAuthService, PlatformAuthService>();
 
         var signingKey = configuration["Jwt:SigningKey"]
