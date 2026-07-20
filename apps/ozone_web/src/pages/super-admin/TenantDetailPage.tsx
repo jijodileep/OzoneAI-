@@ -1,7 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Alert, Button, Descriptions, Layout, Space, Tag, Typography, message, theme } from 'antd'
+import {
+  Alert,
+  Button,
+  Descriptions,
+  Form,
+  Input,
+  Layout,
+  Modal,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  message,
+  theme,
+} from 'antd'
 import { clearPlatformToken, getPlatformToken, platformAuthHeaders } from '../../auth/platformToken'
+import { setTenantToken } from '../../auth/tenantToken'
 
 const { Header, Content } = Layout
 
@@ -30,17 +45,41 @@ type TenantDetail = {
   }>
 }
 
+type AuditRow = {
+  id: string
+  platformUserId: string
+  platformUsername?: string | null
+  reason: string
+  createdAt: string
+  expiresAt: string
+  ipAddress?: string | null
+}
+
 export function SuperAdminTenantDetailPage() {
   const { companyId } = useParams<{ companyId: string }>()
   const navigate = useNavigate()
   const token = getPlatformToken()
   const [detail, setDetail] = useState<TenantDetail | null>(null)
+  const [audits, setAudits] = useState<AuditRow[]>([])
   const [error, setError] = useState<string>()
   const [busy, setBusy] = useState(false)
   const [accessMsg, setAccessMsg] = useState<string>()
+  const [impersonateOpen, setImpersonateOpen] = useState(false)
+  const [impersonating, setImpersonating] = useState(false)
+  const [form] = Form.useForm<{ reason: string }>()
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken()
+
+  const loadAudits = useCallback(async () => {
+    if (!companyId) return
+    const res = await fetch(`/v1/platform/tenants/${companyId}/impersonation-audits`, {
+      headers: platformAuthHeaders(),
+    })
+    if (res.ok) {
+      setAudits((await res.json()) as AuditRow[])
+    }
+  }, [companyId])
 
   const load = useCallback(async () => {
     if (!companyId) return
@@ -58,7 +97,8 @@ export function SuperAdminTenantDetailPage() {
     }
     if (!res.ok) throw new Error('Failed to load tenant')
     setDetail((await res.json()) as TenantDetail)
-  }, [companyId, navigate])
+    await loadAudits()
+  }, [companyId, navigate, loadAudits])
 
   useEffect(() => {
     if (!token) return
@@ -106,6 +146,35 @@ export function SuperAdminTenantDetailPage() {
     )
   }
 
+  async function onImpersonate(values: { reason: string }) {
+    if (!companyId) return
+    setImpersonating(true)
+    try {
+      const res = await fetch(`/v1/platform/tenants/${companyId}/impersonate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...platformAuthHeaders(),
+        },
+        body: JSON.stringify({ reason: values.reason }),
+      })
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null
+        throw new Error(body?.error ?? `Impersonate failed (${res.status})`)
+      }
+      const body = (await res.json()) as { accessToken: string }
+      setTenantToken(body.accessToken)
+      message.success('Opening tenant session')
+      setImpersonateOpen(false)
+      form.resetFields()
+      navigate('/', { replace: true })
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : 'Impersonate failed')
+    } finally {
+      setImpersonating(false)
+    }
+  }
+
   const statusColor =
     detail?.status === 'Active'
       ? 'success'
@@ -138,11 +207,16 @@ export function SuperAdminTenantDetailPage() {
                     <Typography.Text type="secondary">{detail.companyKey}</Typography.Text>
                   </Space>
                 </div>
-                <Space>
+                <Space wrap>
                   {detail.status === 'Active' ? (
-                    <Button danger loading={busy} onClick={() => void setStatus('suspend')}>
-                      Suspend
-                    </Button>
+                    <>
+                      <Button type="primary" onClick={() => setImpersonateOpen(true)}>
+                        Impersonate
+                      </Button>
+                      <Button danger loading={busy} onClick={() => void setStatus('suspend')}>
+                        Suspend
+                      </Button>
+                    </>
                   ) : null}
                   {detail.status === 'Suspended' ? (
                     <Button type="primary" loading={busy} onClick={() => void setStatus('activate')}>
@@ -203,10 +277,70 @@ export function SuperAdminTenantDetailPage() {
                   },
                 ]}
               />
+
+              <Typography.Title level={5} style={{ marginTop: 32 }}>
+                Impersonation audit
+              </Typography.Title>
+              <Table
+                rowKey="id"
+                size="small"
+                pagination={false}
+                dataSource={audits}
+                columns={[
+                  {
+                    title: 'When',
+                    dataIndex: 'createdAt',
+                    render: (v: string) => new Date(v).toLocaleString(),
+                  },
+                  {
+                    title: 'By',
+                    dataIndex: 'platformUsername',
+                    render: (v: string | null | undefined) => v ?? '—',
+                  },
+                  { title: 'Reason', dataIndex: 'reason' },
+                  {
+                    title: 'Expires',
+                    dataIndex: 'expiresAt',
+                    render: (v: string) => new Date(v).toLocaleString(),
+                  },
+                  {
+                    title: 'IP',
+                    dataIndex: 'ipAddress',
+                    render: (v: string | null | undefined) => v ?? '—',
+                  },
+                ]}
+              />
             </>
           ) : null}
         </div>
       </Content>
+
+      <Modal
+        title="Impersonate tenant"
+        open={impersonateOpen}
+        onCancel={() => setImpersonateOpen(false)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Typography.Paragraph type="secondary">
+          Opens a short-lived tenant Admin session. Your action is audited.
+        </Typography.Paragraph>
+        <Form form={form} layout="vertical" onFinish={onImpersonate}>
+          <Form.Item
+            label="Reason"
+            name="reason"
+            rules={[
+              { required: true, message: 'Enter a reason' },
+              { min: 3, message: 'At least 3 characters' },
+            ]}
+          >
+            <Input.TextArea rows={3} placeholder="Support ticket #…" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" block loading={impersonating}>
+            Start impersonation
+          </Button>
+        </Form>
+      </Modal>
     </Layout>
   )
 }

@@ -13,6 +13,9 @@ public sealed class JwtTokenService(IConfiguration configuration) : IJwtTokenSer
     public const string PlatformScope = "platform";
     public const string TenantScope = "tenant";
     public const string SuperAdminRole = "SuperAdmin";
+    public const string CompanyIdClaim = "company_id";
+    public const string CompanyKeyClaim = "company_key";
+    public const string ImpersonatedByClaim = "impersonated_by";
 
     public string IssueToken(IEnumerable<Claim> claims, TimeSpan? lifetime = null)
     {

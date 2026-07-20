@@ -1,9 +1,10 @@
 /**
  * Header FY switcher for the React admin shell (E1.4+).
- * Calls POST /v1/session/financial-year and stores the returned JWT.
+ * Calls POST /v1/session/financial-year (requires tenant JWT).
  */
 import { useEffect, useState } from "react";
 import { Select } from "antd";
+import { tenantAuthHeaders } from "../auth/tenantToken";
 
 type FinancialYear = {
   id: string;
@@ -16,7 +17,7 @@ type SwitchResult = {
   financialYearId: string;
   name: string;
   isReadOnly: boolean;
-  accessToken: string;
+  accessToken?: string;
 };
 
 type Props = {
@@ -33,8 +34,11 @@ export function FinancialYearSwitcher({
   const [currentId, setCurrentId] = useState<string>();
 
   useEffect(() => {
-    fetch(`${apiBaseUrl}/v1/financial-years`)
-      .then((r) => r.json())
+    fetch(`${apiBaseUrl}/v1/financial-years`, { headers: tenantAuthHeaders() })
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load financial years");
+        return r.json();
+      })
       .then((data: FinancialYear[]) => {
         setYears(data);
         const def = data.find((y) => y.isDefault) ?? data[0];
@@ -46,13 +50,18 @@ export function FinancialYearSwitcher({
   async function onChange(financialYearId: string) {
     const res = await fetch(`${apiBaseUrl}/v1/session/financial-year`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...tenantAuthHeaders(),
+      },
       body: JSON.stringify({ financialYearId }),
     });
     if (!res.ok) throw new Error("FY switch failed");
     const result = (await res.json()) as SwitchResult;
     setCurrentId(result.financialYearId);
-    localStorage.setItem("ozoneai.accessToken", result.accessToken);
+    if (result.accessToken) {
+      localStorage.setItem("ozoneai.accessToken", result.accessToken);
+    }
     localStorage.setItem("ozoneai.financialYearId", result.financialYearId);
     onSwitched?.(result);
   }
