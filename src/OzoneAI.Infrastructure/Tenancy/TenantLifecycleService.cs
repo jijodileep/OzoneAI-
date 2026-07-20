@@ -1,11 +1,18 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using OzoneAI.Application.Platform;
+using OzoneAI.Application.Tenancy;
 using OzoneAI.Domain.Catalog;
+using OzoneAI.Domain.Tenant;
 using OzoneAI.Infrastructure.Persistence.Catalog;
 
 namespace OzoneAI.Infrastructure.Tenancy;
 
-public sealed class TenantLifecycleService(CatalogDbContext catalog) : ITenantLifecycleService
+public sealed class TenantLifecycleService(
+    CatalogDbContext catalog,
+    ITenantConnectionFactory connections,
+    ITenantDbContextFactory tenantDbFactory,
+    IPasswordHasher<TenantUser> passwordHasher) : ITenantLifecycleService
 {
     public async Task<TenantDetailDto?> GetAsync(Guid companyId, CancellationToken cancellationToken = default)
     {
@@ -102,6 +109,43 @@ public sealed class TenantLifecycleService(CatalogDbContext catalog) : ITenantLi
         };
     }
 
+    public async Task ResetAdminPasswordAsync(
+        Guid companyId,
+        string newPassword,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+        {
+            throw new ArgumentException("New password must be at least 8 characters.");
+        }
+
+        var company = await catalog.Companies.AsNoTracking()
+            .FirstOrDefaultAsync(x => x.Id == companyId, cancellationToken)
+            ?? throw new InvalidOperationException("Company not found.");
+
+        if (company.Status == CompanyStatus.Suspended)
+        {
+            throw new InvalidOperationException("Cannot reset password for a suspended company.");
+        }
+
+        if (company.Status is CompanyStatus.Migrating or CompanyStatus.Failed)
+        {
+            throw new InvalidOperationException(
+                $"Cannot reset password for a company in status '{company.Status}'.");
+        }
+
+        var cs = await connections.GetWriteConnectionStringAsync(companyId, cancellationToken);
+        await using var tenant = tenantDbFactory.Create(cs);
+        var admin = await tenant.Users
+            .Where(x => x.Role == TenantRoles.Admin && x.IsActive)
+            .OrderBy(x => x.CreatedAt)
+            .FirstOrDefaultAsync(cancellationToken)
+            ?? throw new InvalidOperationException("No active Admin user found in tenant database.");
+
+        admin.PasswordHash = passwordHasher.HashPassword(admin, newPassword);
+        await tenant.SaveChangesAsync(cancellationToken);
+    }
+
     private static TenantDetailDto MapDetail(Company company) =>
         new(
             company.Id,
@@ -127,6 +171,8 @@ public sealed class TenantLifecycleService(CatalogDbContext catalog) : ITenantLi
                     x.Port,
                     x.Username,
                     x.PasswordProtected.Length > 0,
-                    x.IsActive))
+                    x.IsActive,
+                    x.SslMode,
+                    x.RotatedAt))
                 .ToList());
 }

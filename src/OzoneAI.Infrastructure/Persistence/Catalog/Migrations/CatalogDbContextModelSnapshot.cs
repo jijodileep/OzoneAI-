@@ -86,6 +86,74 @@ namespace OzoneAI.Infrastructure.Persistence.Catalog.Migrations
                     b.ToTable("companies", (string)null);
                 });
 
+            modelBuilder.Entity("OzoneAI.Domain.Catalog.ImpersonationAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("PlatformUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlatformUserId");
+
+                    b.HasIndex("CompanyId", "CreatedAt");
+
+                    b.ToTable("impersonation_audits", (string)null);
+                });
+
+            modelBuilder.Entity("OzoneAI.Domain.Catalog.PlatformPasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PlatformUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PlatformUserId");
+
+                    b.HasIndex("TokenHash");
+
+                    b.ToTable("platform_password_reset_tokens", (string)null);
+                });
+
             modelBuilder.Entity("OzoneAI.Domain.Catalog.PlatformUser", b =>
                 {
                     b.Property<Guid>("Id")
@@ -99,6 +167,10 @@ namespace OzoneAI.Infrastructure.Persistence.Catalog.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -200,6 +272,10 @@ namespace OzoneAI.Infrastructure.Persistence.Catalog.Migrations
                     b.Property<DateTimeOffset?>("RotatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("SslMode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -222,6 +298,36 @@ namespace OzoneAI.Infrastructure.Persistence.Catalog.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Plan");
+                });
+
+            modelBuilder.Entity("OzoneAI.Domain.Catalog.ImpersonationAudit", b =>
+                {
+                    b.HasOne("OzoneAI.Domain.Catalog.Company", "Company")
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("OzoneAI.Domain.Catalog.PlatformUser", "PlatformUser")
+                        .WithMany()
+                        .HasForeignKey("PlatformUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+
+                    b.Navigation("PlatformUser");
+                });
+
+            modelBuilder.Entity("OzoneAI.Domain.Catalog.PlatformPasswordResetToken", b =>
+                {
+                    b.HasOne("OzoneAI.Domain.Catalog.PlatformUser", "PlatformUser")
+                        .WithMany()
+                        .HasForeignKey("PlatformUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PlatformUser");
                 });
 
             modelBuilder.Entity("OzoneAI.Domain.Catalog.TenantDbCredential", b =>

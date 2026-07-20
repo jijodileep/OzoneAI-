@@ -27,6 +27,9 @@ internal sealed class PlatformUserConfiguration : IEntityTypeConfiguration<Platf
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(x => x.Email)
+            .HasMaxLength(256);
+
         builder.Property(x => x.CreatedAt)
             .IsRequired();
     }

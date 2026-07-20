@@ -248,6 +248,38 @@ namespace OzoneAI.Infrastructure.Persistence.Tenant.Migrations
                     b.ToTable("ledger_opening_balances", (string)null);
                 });
 
+            modelBuilder.Entity("OzoneAI.Domain.Tenant.PasswordResetToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("password_reset_tokens", (string)null);
+                });
+
             modelBuilder.Entity("OzoneAI.Domain.Tenant.StockOpeningBalance", b =>
                 {
                     b.Property<Guid>("Id")
@@ -300,6 +332,10 @@ namespace OzoneAI.Infrastructure.Persistence.Tenant.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
@@ -376,6 +412,17 @@ namespace OzoneAI.Infrastructure.Persistence.Tenant.Migrations
                         .IsRequired();
 
                     b.Navigation("FinancialYear");
+                });
+
+            modelBuilder.Entity("OzoneAI.Domain.Tenant.PasswordResetToken", b =>
+                {
+                    b.HasOne("OzoneAI.Domain.Tenant.TenantUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("OzoneAI.Domain.Tenant.StockOpeningBalance", b =>

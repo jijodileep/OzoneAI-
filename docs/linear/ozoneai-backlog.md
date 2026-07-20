@@ -18,12 +18,12 @@ Use this with [ozoneai-backlog.csv](ozoneai-backlog.csv). Create each row as a L
 - [x] **E2.3** Tenant list: last used, active users  
 - [x] **E2.4** Tenant detail + suspend/activate  
 - [x] **E2.5** Nightly job: active users + last-used rollup  
-- [ ] **E2.6** Impersonate tenant (audited)  
+- [x] **E2.6** Impersonate tenant (audited)  
 
 ## E3 — Auth & tenancy (P0/P1)
 
-- [ ] **E3.1** Company-key login → JWT  
-- [ ] **E3.2** Tenant connection factory (Write/Read)  
+- [x] **E3.1** Company-key login → JWT  
+- [x] **E3.2** Tenant connection factory (Write/Read)  
 - [ ] **E3.3** Role-based menus  
 - [ ] **E3.4** Device binding for mobile  
 

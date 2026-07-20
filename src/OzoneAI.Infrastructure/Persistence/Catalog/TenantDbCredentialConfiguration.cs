@@ -29,6 +29,9 @@ internal sealed class TenantDbCredentialConfiguration : IEntityTypeConfiguration
             .HasMaxLength(1024)
             .IsRequired();
 
+        builder.Property(x => x.SslMode)
+            .HasMaxLength(32);
+
         builder.Property(x => x.CreatedAt).IsRequired();
 
         builder.HasIndex(x => new { x.CompanyId, x.Role })
