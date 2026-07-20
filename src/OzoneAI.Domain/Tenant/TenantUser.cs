@@ -13,6 +13,9 @@ public class TenantUser
 
     public string DisplayName { get; set; } = string.Empty;
 
+    /// <summary>Optional; required for self-service forgot-password.</summary>
+    public string? Email { get; set; }
+
     public string Role { get; set; } = TenantRoles.Admin;
 
     public bool IsActive { get; set; } = true;

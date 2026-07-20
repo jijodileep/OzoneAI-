@@ -127,7 +127,7 @@ public sealed class TenantAuthServiceTests
 
         var auth = new TenantAuthService(
             catalog,
-            new TenantLifecycleService(catalog),
+            TestFixtures.CreateLifecycle(catalog, tf),
             new TenantConnectionFactory(catalog, TestFixtures.CreateCache()),
             tf,
             TestFixtures.CreateJwt(),
@@ -144,7 +144,7 @@ public sealed class TenantAuthServiceTests
         var tf = TestFixtures.CreateTenantFactory(Guid.NewGuid().ToString());
         return new TenantAuthService(
             catalog,
-            new TenantLifecycleService(catalog),
+            TestFixtures.CreateLifecycle(catalog, tf),
             new TenantConnectionFactory(catalog, TestFixtures.CreateCache()),
             tf,
             TestFixtures.CreateJwt(),
@@ -159,7 +159,7 @@ public sealed class TenantAuthServiceTests
         var (company, _, _) = await TestFixtures.SeedCompanyAsync(catalog, tf, status: status);
         var svc = new TenantAuthService(
             catalog,
-            new TenantLifecycleService(catalog),
+            TestFixtures.CreateLifecycle(catalog, tf),
             new TenantConnectionFactory(catalog, TestFixtures.CreateCache()),
             tf,
             TestFixtures.CreateJwt(),
@@ -181,6 +181,12 @@ public sealed class TenantAuthServiceTests
             Task.FromResult<TenantDetailDto?>(null);
 
         public Task SuspendAsync(Guid companyId, CancellationToken cancellationToken = default) =>
+            Task.CompletedTask;
+
+        public Task ResetAdminPasswordAsync(
+            Guid companyId,
+            string newPassword,
+            CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
     }
 

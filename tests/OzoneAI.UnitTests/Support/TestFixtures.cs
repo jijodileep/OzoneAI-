@@ -41,6 +41,15 @@ internal static class TestFixtures
 
     public static PasswordHasher<TenantUser> Hasher { get; } = new();
 
+    public static TenantLifecycleService CreateLifecycle(
+        CatalogDbContext catalog,
+        ITenantDbContextFactory? tenantFactory = null)
+    {
+        var factory = tenantFactory ?? CreateTenantFactory(Guid.NewGuid().ToString());
+        var connections = new TenantConnectionFactory(catalog, CreateCache());
+        return new TenantLifecycleService(catalog, connections, factory, Hasher);
+    }
+
     public static async Task<(Company company, PlatformUser platform, TenantUser admin)> SeedCompanyAsync(
         CatalogDbContext catalog,
         InMemoryTenantDbContextFactory tenantFactory,
@@ -92,6 +101,7 @@ internal static class TestFixtures
             Id = Guid.NewGuid(),
             Username = "admin",
             DisplayName = "Admin",
+            Email = "admin@example.com",
             Role = TenantRoles.Admin,
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow

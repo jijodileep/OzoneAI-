@@ -27,6 +27,8 @@ public sealed class TenantDbContext : DbContext
 
     public DbSet<TenantUser> Users => Set<TenantUser>();
 
+    public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(

@@ -9,12 +9,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using OzoneAI.Application.Auth;
+using OzoneAI.Application.Email;
 using OzoneAI.Application.FinancialYears;
 using OzoneAI.Application.Platform;
 using OzoneAI.Application.Tenancy;
 using OzoneAI.Domain.Catalog;
 using OzoneAI.Domain.Tenant;
 using OzoneAI.Infrastructure.Auth;
+using OzoneAI.Infrastructure.Email;
 using OzoneAI.Infrastructure.FinancialYears;
 using OzoneAI.Infrastructure.Persistence.Catalog;
 using OzoneAI.Infrastructure.Persistence.Tenant;
@@ -61,6 +63,9 @@ public static class DependencyInjection
         services.AddScoped<ITenantLifecycleService, TenantLifecycleService>();
         services.AddScoped<IImpersonationService, ImpersonationService>();
         services.AddScoped<TenantMetricsRollupJob>();
+        services.Configure<SmtpOptions>(configuration.GetSection(SmtpOptions.SectionName));
+        services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<IPasswordResetService, PasswordResetService>();
 
         var redisConnection = configuration.GetConnectionString("Redis")
             ?? "localhost:6380";

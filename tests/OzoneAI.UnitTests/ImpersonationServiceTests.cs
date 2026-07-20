@@ -82,14 +82,14 @@ public sealed class ImpersonationServiceTests
 
         var auth = new TenantAuthService(
             catalog,
-            new TenantLifecycleService(catalog),
+            TestFixtures.CreateLifecycle(catalog, tf),
             new TenantConnectionFactory(catalog, TestFixtures.CreateCache()),
             tf,
             TestFixtures.CreateJwt(),
             TestFixtures.Hasher);
         var svc = new ImpersonationService(
             catalog,
-            new TenantLifecycleService(catalog),
+            TestFixtures.CreateLifecycle(catalog, tf),
             new TenantConnectionFactory(catalog, TestFixtures.CreateCache()),
             tf,
             auth);
@@ -122,14 +122,14 @@ public sealed class ImpersonationServiceTests
         var (company, platform, _) = await TestFixtures.SeedCompanyAsync(catalog, tf);
         var auth = new TenantAuthService(
             catalog,
-            new TenantLifecycleService(catalog),
+            TestFixtures.CreateLifecycle(catalog, tf),
             new TenantConnectionFactory(catalog, TestFixtures.CreateCache()),
             tf,
             TestFixtures.CreateJwt(),
             TestFixtures.Hasher);
         var svc = new ImpersonationService(
             catalog,
-            new TenantLifecycleService(catalog),
+            TestFixtures.CreateLifecycle(catalog, tf),
             new TenantConnectionFactory(catalog, TestFixtures.CreateCache()),
             tf,
             auth);

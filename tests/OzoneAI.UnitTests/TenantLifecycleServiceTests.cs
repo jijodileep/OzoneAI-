@@ -10,7 +10,7 @@ public sealed class TenantLifecycleServiceTests
     public async Task GetAsync_returns_null_when_missing()
     {
         await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
         Assert.Null(await svc.GetAsync(Guid.NewGuid()));
     }
 
@@ -20,7 +20,7 @@ public sealed class TenantLifecycleServiceTests
         await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
         var factory = TestFixtures.CreateTenantFactory(Guid.NewGuid().ToString());
         var (company, _, _) = await TestFixtures.SeedCompanyAsync(catalog, factory);
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
         var detail = await svc.GetAsync(company.Id);
         Assert.NotNull(detail);
         Assert.Equal(company.CompanyKey, detail!.CompanyKey);
@@ -58,7 +58,7 @@ public sealed class TenantLifecycleServiceTests
         });
         await catalog.SaveChangesAsync();
 
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
         var detail = await svc.GetAsync(company.Id);
         Assert.NotNull(detail);
         Assert.Equal("Pro", detail!.PlanName);
@@ -72,7 +72,7 @@ public sealed class TenantLifecycleServiceTests
         await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
         var factory = TestFixtures.CreateTenantFactory(Guid.NewGuid().ToString());
         var (company, _, _) = await TestFixtures.SeedCompanyAsync(catalog, factory);
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
 
         await svc.SuspendAsync(company.Id);
         Assert.Equal(CompanyStatus.Suspended, (await catalog.Companies.FindAsync(company.Id))!.Status);
@@ -89,7 +89,7 @@ public sealed class TenantLifecycleServiceTests
         await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
         var factory = TestFixtures.CreateTenantFactory(Guid.NewGuid().ToString());
         var (company, _, _) = await TestFixtures.SeedCompanyAsync(catalog, factory, status: CompanyStatus.Migrating);
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.SuspendAsync(company.Id));
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ActivateAsync(company.Id));
     }
@@ -98,7 +98,7 @@ public sealed class TenantLifecycleServiceTests
     public async Task Suspend_missing_company_throws()
     {
         await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.SuspendAsync(Guid.NewGuid()));
         await Assert.ThrowsAsync<InvalidOperationException>(() => svc.ActivateAsync(Guid.NewGuid()));
     }
@@ -109,7 +109,7 @@ public sealed class TenantLifecycleServiceTests
     public async Task CheckLoginAccess_rejects_empty_key(string key)
     {
         await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
         var result = await svc.CheckLoginAccessAsync(key);
         Assert.False(result.Allowed);
     }
@@ -118,7 +118,7 @@ public sealed class TenantLifecycleServiceTests
     public async Task CheckLoginAccess_unknown_key()
     {
         await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
         var result = await svc.CheckLoginAccessAsync("nope");
         Assert.False(result.Allowed);
         Assert.Equal("Unknown company key.", result.Reason);
@@ -135,7 +135,7 @@ public sealed class TenantLifecycleServiceTests
         var factory = TestFixtures.CreateTenantFactory(Guid.NewGuid().ToString());
         var key = $"k{status}".ToLowerInvariant();
         var (company, _, _) = await TestFixtures.SeedCompanyAsync(catalog, factory, key: key, status: status);
-        var svc = new TenantLifecycleService(catalog);
+        var svc = TestFixtures.CreateLifecycle(catalog);
         var result = await svc.CheckLoginAccessAsync(company.CompanyKey.ToUpperInvariant());
         Assert.Equal(allowed, result.Allowed);
         Assert.Equal(company.Id, result.CompanyId);

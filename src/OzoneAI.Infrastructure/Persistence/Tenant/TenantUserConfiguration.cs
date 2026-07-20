@@ -27,6 +27,9 @@ internal sealed class TenantUserConfiguration : IEntityTypeConfiguration<TenantU
             .HasMaxLength(200)
             .IsRequired();
 
+        builder.Property(x => x.Email)
+            .HasMaxLength(256);
+
         builder.Property(x => x.Role)
             .HasMaxLength(64)
             .IsRequired();

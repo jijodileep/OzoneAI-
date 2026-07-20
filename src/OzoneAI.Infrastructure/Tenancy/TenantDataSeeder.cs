@@ -71,6 +71,7 @@ public sealed class TenantDataSeeder(IPasswordHasher<TenantUser> passwordHasher)
                 DisplayName = string.IsNullOrWhiteSpace(options.AdminDisplayName)
                     ? options.AdminUsername.Trim()
                     : options.AdminDisplayName.Trim(),
+                Email = string.IsNullOrWhiteSpace(options.AdminEmail) ? null : options.AdminEmail.Trim(),
                 Role = TenantRoles.Admin,
                 IsActive = true,
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -94,4 +95,5 @@ public sealed record TenantSeedOptions(
     string CurrencyCode,
     string AdminUsername,
     string AdminPassword,
-    string? AdminDisplayName);
+    string? AdminDisplayName,
+    string? AdminEmail = null);

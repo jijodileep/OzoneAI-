@@ -81,8 +81,7 @@ public sealed class TenantConnectionFactory(
                 $"No active {role} database credentials for company '{company.CompanyKey}'.");
         }
 
-        var cs =
-            $"Host={cred.Host};Port={cred.Port};Database={company.DatabaseName};Username={cred.Username};Password={cred.PasswordProtected}";
+        var cs = TenantConnectionStringBuilder.Build(company, cred);
 
         return new TenantConnectionInfo(
             company.Id,

@@ -22,6 +22,11 @@ public class TenantDbCredential
     /// <summary>Encrypted at rest in later stories; plain for local scaffold only.</summary>
     public string PasswordProtected { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Optional Npgsql SSL Mode (e.g. Prefer, Require). Null/empty = omit from connection string.
+    /// </summary>
+    public string? SslMode { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTimeOffset CreatedAt { get; set; }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Alert, Button, Card, Form, Input, Typography } from 'antd'
 import { getTenantToken, setTenantToken } from '../auth/tenantToken'
 
@@ -79,6 +79,9 @@ export function TenantLoginPage() {
           <Button type="primary" htmlType="submit" block size="large" loading={loading}>
             Sign in
           </Button>
+          <div style={{ marginTop: 12, textAlign: 'center' }}>
+            <Link to="/forgot-password">Forgot password?</Link>
+          </div>
         </Form>
       </Card>
     </div>

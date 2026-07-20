@@ -18,6 +18,7 @@ public sealed partial class TenantProvisioningService(
     ILogger<TenantProvisioningService> logger) : ITenantProvisioningService
 {
     private static readonly Regex CompanyKeyRegex = CompanyKeyPattern();
+    private static readonly Regex DatabaseNameRegex = DatabaseNamePattern();
 
     public async Task<IReadOnlyList<TenantSummaryDto>> ListAsync(CancellationToken cancellationToken = default)
     {
@@ -67,10 +68,97 @@ public sealed partial class TenantProvisioningService(
             throw new InvalidOperationException($"Company key '{companyKey}' already exists.");
         }
 
-        var databaseName = $"ozone_t_{companyKey}";
-        if (databaseName.Length > 63)
+        var dbMode = string.IsNullOrWhiteSpace(request.DbMode)
+            ? TenantDbModes.Provisioned
+            : request.DbMode.Trim();
+
+        if (!dbMode.Equals(TenantDbModes.Provisioned, StringComparison.OrdinalIgnoreCase)
+            && !dbMode.Equals(TenantDbModes.External, StringComparison.OrdinalIgnoreCase))
         {
-            throw new ArgumentException("Resulting database name exceeds PostgreSQL limit.");
+            throw new ArgumentException("dbMode must be Provisioned or External.");
+        }
+
+        var isExternal = dbMode.Equals(TenantDbModes.External, StringComparison.OrdinalIgnoreCase);
+        string host;
+        int port;
+        string dbUser;
+        string dbPassword;
+        string databaseName;
+        string? sslMode;
+
+        if (isExternal)
+        {
+            if (string.IsNullOrWhiteSpace(request.DbHost)
+                || string.IsNullOrWhiteSpace(request.DbUsername)
+                || string.IsNullOrWhiteSpace(request.DbPassword)
+                || string.IsNullOrWhiteSpace(request.DatabaseName)
+                || request.DbPort is null)
+            {
+                throw new ArgumentException(
+                    "External mode requires dbHost, dbPort, databaseName, dbUsername, and dbPassword.");
+            }
+
+            if (request.DbPort is < 1 or > 65535)
+            {
+                throw new ArgumentException("dbPort must be between 1 and 65535.");
+            }
+
+            databaseName = request.DatabaseName.Trim();
+            if (!DatabaseNameRegex.IsMatch(databaseName))
+            {
+                throw new ArgumentException(
+                    "databaseName must be 1–63 chars: letter/underscore, then letters/digits/underscore.");
+            }
+
+            host = request.DbHost.Trim();
+            port = request.DbPort.Value;
+            dbUser = request.DbUsername.Trim();
+            dbPassword = request.DbPassword;
+            sslMode = string.IsNullOrWhiteSpace(request.SslMode) ? null : request.SslMode.Trim();
+        }
+        else
+        {
+            databaseName = string.IsNullOrWhiteSpace(request.DatabaseName)
+                ? $"ozone_t_{companyKey}"
+                : request.DatabaseName.Trim();
+            if (databaseName.Length > 63)
+            {
+                throw new ArgumentException("Resulting database name exceeds PostgreSQL limit.");
+            }
+
+            if (!DatabaseNameRegex.IsMatch(databaseName))
+            {
+                throw new ArgumentException(
+                    "databaseName must be 1–63 chars: letter/underscore, then letters/digits/underscore.");
+            }
+
+            (host, port, dbUser, dbPassword) = TenantDbEndpoint.Resolve(configuration);
+            if (!string.IsNullOrWhiteSpace(request.DbHost))
+            {
+                host = request.DbHost.Trim();
+            }
+
+            if (request.DbPort is >= 1 and <= 65535)
+            {
+                port = request.DbPort.Value;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.DbUsername))
+            {
+                dbUser = request.DbUsername.Trim();
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.DbPassword))
+            {
+                dbPassword = request.DbPassword;
+            }
+
+            sslMode = string.IsNullOrWhiteSpace(request.SslMode) ? null : request.SslMode.Trim();
+        }
+
+        if (await catalog.Companies.AnyAsync(x => x.DatabaseName == databaseName, cancellationToken))
+        {
+            throw new InvalidOperationException($"Database name '{databaseName}' is already registered.");
         }
 
         var planId = request.PlanId
@@ -79,8 +167,6 @@ public sealed partial class TenantProvisioningService(
                 .OrderBy(x => x.Name)
                 .Select(x => (Guid?)x.Id)
                 .FirstOrDefaultAsync(cancellationToken);
-
-        var (host, port, dbUser, dbPassword) = TenantDbEndpoint.Resolve(configuration);
 
         var company = new Company
         {
@@ -108,6 +194,7 @@ public sealed partial class TenantProvisioningService(
             Port = port,
             Username = dbUser,
             PasswordProtected = dbPassword,
+            SslMode = sslMode,
             IsActive = true,
             CreatedAt = DateTimeOffset.UtcNow
         });
@@ -116,11 +203,14 @@ public sealed partial class TenantProvisioningService(
         var dbCreated = false;
         try
         {
-            await CreateDatabaseIfMissingAsync(databaseName, cancellationToken);
-            dbCreated = true;
+            if (!isExternal)
+            {
+                await CreateDatabaseIfMissingAsync(databaseName, cancellationToken);
+                dbCreated = true;
+            }
 
-            var connectionString =
-                $"Host={host};Port={port};Database={databaseName};Username={dbUser};Password={dbPassword}";
+            var connectionString = TenantConnectionStringBuilder.Build(
+                host, port, databaseName, dbUser, dbPassword, sslMode);
 
             var options = new DbContextOptionsBuilder<TenantDbContext>()
                 .UseNpgsql(connectionString)
@@ -131,6 +221,9 @@ public sealed partial class TenantProvisioningService(
                 await tenantDb.Database.MigrateAsync(cancellationToken);
 
                 var legalName = string.IsNullOrWhiteSpace(request.LegalName) ? company.Name : request.LegalName.Trim();
+                var adminEmail = string.IsNullOrWhiteSpace(request.AdminEmail)
+                    ? request.Email?.Trim()
+                    : request.AdminEmail.Trim();
                 await seeder.SeedDefaultsAsync(
                     tenantDb,
                     new TenantSeedOptions(
@@ -142,7 +235,8 @@ public sealed partial class TenantProvisioningService(
                         CurrencyCode: string.IsNullOrWhiteSpace(request.CurrencyCode) ? "INR" : request.CurrencyCode.Trim(),
                         AdminUsername: request.AdminUsername.Trim(),
                         AdminPassword: request.AdminPassword,
-                        AdminDisplayName: request.AdminDisplayName),
+                        AdminDisplayName: request.AdminDisplayName,
+                        AdminEmail: adminEmail),
                     cancellationToken);
 
                 company.SchemaVersion = tenantDb.Database.GetAppliedMigrations().LastOrDefault();
@@ -152,9 +246,10 @@ public sealed partial class TenantProvisioningService(
             await catalog.SaveChangesAsync(cancellationToken);
 
             logger.LogInformation(
-                "Provisioned tenant {CompanyKey} database {DatabaseName}",
+                "Provisioned tenant {CompanyKey} database {DatabaseName} (mode {DbMode})",
                 companyKey,
-                databaseName);
+                databaseName,
+                isExternal ? TenantDbModes.External : TenantDbModes.Provisioned);
 
             return new CreateTenantResult(
                 company.Id,
@@ -193,7 +288,6 @@ public sealed partial class TenantProvisioningService(
             }
         }
 
-        // Database names validated via companyKey regex — safe to interpolate as identifier.
         await using var createCmd = new NpgsqlCommand($"CREATE DATABASE \"{databaseName}\"", conn);
         await createCmd.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -259,4 +353,7 @@ public sealed partial class TenantProvisioningService(
 
     [GeneratedRegex("^[a-z][a-z0-9_]{1,31}$")]
     private static partial Regex CompanyKeyPattern();
+
+    [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_]{0,62}$")]
+    private static partial Regex DatabaseNamePattern();
 }

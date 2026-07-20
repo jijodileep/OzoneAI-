@@ -10,6 +10,9 @@ public interface ITenantLifecycleService
 
     /// <summary>Used by tenant login (E3.1). Suspended/Failed/Migrating companies cannot log in.</summary>
     Task<TenantAccessCheckResult> CheckLoginAccessAsync(string companyKey, CancellationToken cancellationToken = default);
+
+    /// <summary>Force-set the tenant Admin password (support desk; no email).</summary>
+    Task ResetAdminPasswordAsync(Guid companyId, string newPassword, CancellationToken cancellationToken = default);
 }
 
 public sealed record TenantDetailDto(
@@ -36,7 +39,9 @@ public sealed record TenantCredentialSummaryDto(
     int Port,
     string Username,
     bool PasswordSet,
-    bool IsActive);
+    bool IsActive,
+    string? SslMode = null,
+    DateTimeOffset? RotatedAt = null);
 
 public sealed record TenantAccessCheckResult(
     bool Allowed,

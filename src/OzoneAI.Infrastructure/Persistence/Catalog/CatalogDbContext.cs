@@ -15,6 +15,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
     public DbSet<ImpersonationAudit> ImpersonationAudits => Set<ImpersonationAudit>();
 
+    public DbSet<PlatformPasswordResetToken> PlatformPasswordResetTokens => Set<PlatformPasswordResetToken>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(

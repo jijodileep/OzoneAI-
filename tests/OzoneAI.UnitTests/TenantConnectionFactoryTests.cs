@@ -66,6 +66,21 @@ public sealed class TenantConnectionFactoryTests
     }
 
     [Fact]
+    public async Task SslMode_appended_to_connection_string()
+    {
+        await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
+        var factory = TestFixtures.CreateTenantFactory(Guid.NewGuid().ToString());
+        var (company, _, _) = await TestFixtures.SeedCompanyAsync(catalog, factory);
+        var cred = catalog.TenantDbCredentials.Single(c => c.CompanyId == company.Id);
+        cred.SslMode = "Require";
+        await catalog.SaveChangesAsync();
+
+        var connections = new TenantConnectionFactory(catalog, TestFixtures.CreateCache());
+        var write = await connections.GetWriteConnectionStringAsync(company.Id);
+        Assert.Contains("SSL Mode=Require", write);
+    }
+
+    [Fact]
     public async Task Missing_write_credential_throws()
     {
         await using var catalog = TestFixtures.CreateCatalog(Guid.NewGuid().ToString());
