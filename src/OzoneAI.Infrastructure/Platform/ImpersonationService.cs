@@ -4,9 +4,8 @@ using OzoneAI.Application.Platform;
 using OzoneAI.Application.Tenancy;
 using OzoneAI.Domain.Catalog;
 using OzoneAI.Domain.Tenant;
-using OzoneAI.Infrastructure.FinancialYears;
 using OzoneAI.Infrastructure.Persistence.Catalog;
-using OzoneAI.Infrastructure.Persistence.Tenant;
+using OzoneAI.Infrastructure.Tenancy;
 
 namespace OzoneAI.Infrastructure.Platform;
 
@@ -14,6 +13,7 @@ public sealed class ImpersonationService(
     CatalogDbContext catalog,
     ITenantLifecycleService lifecycle,
     ITenantConnectionFactory connectionFactory,
+    ITenantDbContextFactory tenantDbFactory,
     ITenantAuthService tenantAuth) : IImpersonationService
 {
     private static readonly TimeSpan ImpersonationLifetime = TimeSpan.FromHours(1);
@@ -50,16 +50,8 @@ public sealed class ImpersonationService(
             .FirstOrDefaultAsync(x => x.Id == platformUserId && x.IsActive, cancellationToken)
             ?? throw new InvalidOperationException("Platform user not found.");
 
-        var cs = await connectionFactory.GetConnectionStringAsync(
-            companyId,
-            TenantDbCredentialRole.Write,
-            cancellationToken);
-
-        var options = new DbContextOptionsBuilder<TenantDbContext>()
-            .UseNpgsql(cs)
-            .Options;
-
-        await using var tenantDb = new TenantDbContext(options, new FinancialYearContext());
+        var cs = await connectionFactory.GetWriteConnectionStringAsync(companyId, cancellationToken);
+        await using var tenantDb = tenantDbFactory.Create(cs);
         var admin = await tenantDb.Users.AsNoTracking()
             .Where(x => x.IsActive)
             .OrderBy(x => x.Role == TenantRoles.Admin ? 0 : 1)

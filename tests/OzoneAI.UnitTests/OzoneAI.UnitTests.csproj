@@ -1,0 +1,47 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- 100% line coverage on auth/tenancy types introduced in E3.1–E3.2 -->
+    <CollectCoverage>true</CollectCoverage>
+    <CoverletOutputFormat>cobertura,json,opencover</CoverletOutputFormat>
+    <CoverletOutput>./TestResults/coverage</CoverletOutput>
+    <!-- Coverlet filter separator is comma: [Assembly]Type -->
+    <Include>[OzoneAI.Infrastructure]OzoneAI.Infrastructure.Auth.*,[OzoneAI.Infrastructure]OzoneAI.Infrastructure.Platform.ImpersonationService,[OzoneAI.Infrastructure]OzoneAI.Infrastructure.Tenancy.TenantConnectionFactory,[OzoneAI.Infrastructure]OzoneAI.Infrastructure.Tenancy.TenantLifecycleService,[OzoneAI.Infrastructure]OzoneAI.Infrastructure.Tenancy.TenantMetricsService,[OzoneAI.Infrastructure]OzoneAI.Infrastructure.Tenancy.TenantResolutionMiddleware,[OzoneAI.Infrastructure]OzoneAI.Infrastructure.Tenancy.TenantContext,[OzoneAI.Infrastructure]OzoneAI.Infrastructure.Tenancy.NpgsqlTenantDbContextFactory</Include>
+    <Exclude>[OzoneAI.Domain]*,[OzoneAI.Application]*</Exclude>
+    <Threshold>100</Threshold>
+    <ThresholdType>line,branch,method</ThresholdType>
+    <ThresholdStat>total</ThresholdStat>
+    <ExcludeByAttribute>Obsolete,GeneratedCodeAttribute,CompilerGeneratedAttribute</ExcludeByAttribute>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="coverlet.msbuild" Version="6.0.4">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.6" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="9.0.6" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.6" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.6" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\OzoneAI.Infrastructure\OzoneAI.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

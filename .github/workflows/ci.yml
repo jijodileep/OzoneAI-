@@ -22,9 +22,9 @@ jobs:
         run: dotnet restore OzoneAI.sln
       - name: Build
         run: dotnet build OzoneAI.sln -c Release --no-restore
-      - name: Test (optional)
-        run: |
-          if [ -d ../tests ]; then dotnet test ../tests -c Release --no-build; else echo "No tests yet"; fi
+      - name: Test with 100% line coverage gate (auth/tenancy)
+        working-directory: ${{ github.workspace }}
+        run: dotnet test tests/OzoneAI.UnitTests/OzoneAI.UnitTests.csproj -c Release
 
   web:
     name: Build web (when present)

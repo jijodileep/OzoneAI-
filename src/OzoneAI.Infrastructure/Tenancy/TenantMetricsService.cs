@@ -3,15 +3,14 @@ using Microsoft.Extensions.Logging;
 using OzoneAI.Application.Platform;
 using OzoneAI.Application.Tenancy;
 using OzoneAI.Domain.Catalog;
-using OzoneAI.Infrastructure.FinancialYears;
 using OzoneAI.Infrastructure.Persistence.Catalog;
-using OzoneAI.Infrastructure.Persistence.Tenant;
 
 namespace OzoneAI.Infrastructure.Tenancy;
 
 public sealed class TenantMetricsService(
     CatalogDbContext catalog,
     ITenantConnectionFactory connectionFactory,
+    ITenantDbContextFactory tenantDbFactory,
     ILogger<TenantMetricsService> logger) : ITenantMetricsService
 {
     public async Task<TenantMetricsRefreshResult> RefreshAllAsync(CancellationToken cancellationToken = default)
@@ -28,16 +27,11 @@ public sealed class TenantMetricsService(
         {
             try
             {
-                var cs = await connectionFactory.GetConnectionStringAsync(
+                var cs = await connectionFactory.GetWriteConnectionStringAsync(
                     company.Id,
-                    TenantDbCredentialRole.Write,
                     cancellationToken);
 
-                var options = new DbContextOptionsBuilder<TenantDbContext>()
-                    .UseNpgsql(cs)
-                    .Options;
-
-                await using var tenantDb = new TenantDbContext(options, new FinancialYearContext());
+                await using var tenantDb = tenantDbFactory.Create(cs);
 
                 var totalUsers = await tenantDb.Users.AsNoTracking().CountAsync(cancellationToken);
                 var activeUsers = await tenantDb.Users.AsNoTracking()

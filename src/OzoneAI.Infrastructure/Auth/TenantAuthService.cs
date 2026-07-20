@@ -7,9 +7,8 @@ using OzoneAI.Application.Platform;
 using OzoneAI.Application.Tenancy;
 using OzoneAI.Domain.Catalog;
 using OzoneAI.Domain.Tenant;
-using OzoneAI.Infrastructure.FinancialYears;
 using OzoneAI.Infrastructure.Persistence.Catalog;
-using OzoneAI.Infrastructure.Persistence.Tenant;
+using OzoneAI.Infrastructure.Tenancy;
 
 namespace OzoneAI.Infrastructure.Auth;
 
@@ -17,6 +16,7 @@ public sealed class TenantAuthService(
     CatalogDbContext catalog,
     ITenantLifecycleService lifecycle,
     ITenantConnectionFactory connectionFactory,
+    ITenantDbContextFactory tenantDbFactory,
     IJwtTokenService jwt,
     IPasswordHasher<TenantUser> passwordHasher) : ITenantAuthService
 {
@@ -48,16 +48,8 @@ public sealed class TenantAuthService(
             return null;
         }
 
-        var cs = await connectionFactory.GetConnectionStringAsync(
-            company.Id,
-            TenantDbCredentialRole.Write,
-            cancellationToken);
-
-        var options = new DbContextOptionsBuilder<TenantDbContext>()
-            .UseNpgsql(cs)
-            .Options;
-
-        await using var tenantDb = new TenantDbContext(options, new FinancialYearContext());
+        var cs = await connectionFactory.GetWriteConnectionStringAsync(company.Id, cancellationToken);
+        await using var tenantDb = tenantDbFactory.Create(cs);
 
         var normalizedUser = username.Trim();
         var user = await tenantDb.Users
@@ -109,16 +101,8 @@ public sealed class TenantAuthService(
             throw new InvalidOperationException(access.Reason ?? "Company login is not allowed.");
         }
 
-        var cs = await connectionFactory.GetConnectionStringAsync(
-            companyId,
-            TenantDbCredentialRole.Write,
-            cancellationToken);
-
-        var options = new DbContextOptionsBuilder<TenantDbContext>()
-            .UseNpgsql(cs)
-            .Options;
-
-        await using var tenantDb = new TenantDbContext(options, new FinancialYearContext());
+        var cs = await connectionFactory.GetWriteConnectionStringAsync(companyId, cancellationToken);
+        await using var tenantDb = tenantDbFactory.Create(cs);
         var user = await tenantDb.Users.AsNoTracking()
             .FirstOrDefaultAsync(x => x.Id == userId && x.IsActive, cancellationToken)
             ?? throw new InvalidOperationException("Tenant user not found or inactive.");

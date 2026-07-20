@@ -54,6 +54,7 @@ public static class DependencyInjection
         services.AddScoped<IYearCloseService, YearCloseService>();
         services.AddScoped<IBalanceSheetService, BalanceSheetService>();
         services.AddScoped<ITenantConnectionFactory, TenantConnectionFactory>();
+        services.AddSingleton<ITenantDbContextFactory, NpgsqlTenantDbContextFactory>();
         services.AddScoped<TenantDataSeeder>();
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
         services.AddScoped<ITenantMetricsService, TenantMetricsService>();
