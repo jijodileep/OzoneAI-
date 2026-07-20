@@ -36,9 +36,16 @@ public static class DependencyInjection
         var tenantConnection = configuration.GetConnectionString("Tenant")
             ?? catalogConnection.Replace("Database=ozone_catalog", "Database=ozone_t_demo", StringComparison.OrdinalIgnoreCase);
 
+        services.AddHttpContextAccessor();
+        services.AddMemoryCache();
+        services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<IFinancialYearContext, FinancialYearContext>();
-        services.AddDbContext<TenantDbContext>(options =>
-            options.UseNpgsql(tenantConnection));
+        services.AddDbContext<TenantDbContext>((sp, options) =>
+        {
+            var tenantCtx = sp.GetRequiredService<ITenantContext>();
+            var cs = tenantCtx.ConnectionString ?? tenantConnection;
+            options.UseNpgsql(cs);
+        });
 
         services.AddSingleton<IFinancialYearGuard, FinancialYearGuard>();
         services.AddSingleton<ILedgerBalanceCalculator, LedgerBalanceCalculator>();
@@ -51,6 +58,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantProvisioningService, TenantProvisioningService>();
         services.AddScoped<ITenantMetricsService, TenantMetricsService>();
         services.AddScoped<ITenantLifecycleService, TenantLifecycleService>();
+        services.AddScoped<IImpersonationService, ImpersonationService>();
         services.AddScoped<TenantMetricsRollupJob>();
 
         var redisConnection = configuration.GetConnectionString("Redis")
@@ -66,6 +74,7 @@ public static class DependencyInjection
         services.AddSingleton<IPasswordHasher<PlatformUser>, PasswordHasher<PlatformUser>>();
         services.AddSingleton<IPasswordHasher<TenantUser>, PasswordHasher<TenantUser>>();
         services.AddScoped<IPlatformAuthService, PlatformAuthService>();
+        services.AddScoped<ITenantAuthService, TenantAuthService>();
 
         var signingKey = configuration["Jwt:SigningKey"]
             ?? throw new InvalidOperationException("Jwt:SigningKey is not configured.");
@@ -93,6 +102,8 @@ public static class DependencyInjection
         {
             options.AddPolicy("SuperAdminOnly", policy =>
                 policy.RequireRole(JwtTokenService.SuperAdminRole));
+            options.AddPolicy("TenantOnly", policy =>
+                policy.RequireClaim(JwtTokenService.AuthScopeClaim, JwtTokenService.TenantScope));
         });
 
         return services;

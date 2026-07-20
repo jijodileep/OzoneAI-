@@ -13,6 +13,8 @@ public sealed class CatalogDbContext(DbContextOptions<CatalogDbContext> options)
 
     public DbSet<PlatformUser> PlatformUsers => Set<PlatformUser>();
 
+    public DbSet<ImpersonationAudit> ImpersonationAudits => Set<ImpersonationAudit>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(

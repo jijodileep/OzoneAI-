@@ -3,8 +3,10 @@ using Hangfire;
 using Hangfire.Dashboard;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using OzoneAI.Application.Auth;
 using OzoneAI.Application.FinancialYears;
 using OzoneAI.Application.Platform;
+using OzoneAI.Application.Tenancy;
 using OzoneAI.Domain.Catalog;
 using OzoneAI.Domain.Tenant;
 using OzoneAI.Infrastructure;
@@ -52,6 +54,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseAuthentication();
+app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 
 app.UseHangfireDashboard("/hangfire", new DashboardOptions
@@ -81,6 +84,35 @@ app.MapPost("/v1/platform/auth/login", async (
         ? Results.Unauthorized()
         : Results.Ok(result);
 }).AllowAnonymous();
+
+app.MapPost("/v1/auth/login", async (
+    TenantLoginRequest body,
+    ITenantAuthService auth,
+    CancellationToken ct) =>
+{
+    var result = await auth.LoginAsync(body.CompanyKey, body.Username, body.Password, ct);
+    return result is null
+        ? Results.Unauthorized()
+        : Results.Ok(result);
+}).AllowAnonymous();
+
+app.MapGet("/v1/auth/me", (ClaimsPrincipal user, ITenantContext tenant) =>
+{
+    var id = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+    Guid? ParseGuid(string? value) => Guid.TryParse(value, out var g) ? g : null;
+    return Results.Ok(new
+    {
+        id,
+        username = user.Identity?.Name,
+        role = user.FindFirstValue(ClaimTypes.Role),
+        scope = user.FindFirstValue(JwtTokenService.AuthScopeClaim),
+        companyId = tenant.CompanyId ?? ParseGuid(user.FindFirstValue(JwtTokenService.CompanyIdClaim)),
+        companyKey = tenant.CompanyKey ?? user.FindFirstValue(JwtTokenService.CompanyKeyClaim),
+        connectionRole = tenant.ConnectionRole?.ToString(),
+        impersonatedBy = tenant.ImpersonatedBy
+            ?? ParseGuid(user.FindFirstValue(JwtTokenService.ImpersonatedByClaim))
+    });
+}).RequireAuthorization("TenantOnly");
 
 app.MapGet("/v1/platform/me", (ClaimsPrincipal user) =>
 {
@@ -180,6 +212,54 @@ app.MapPost("/v1/platform/tenants/{companyId:guid}/activate", async (
     }
 }).RequireAuthorization("SuperAdminOnly");
 
+app.MapPost("/v1/platform/tenants/{companyId:guid}/impersonate", async (
+    Guid companyId,
+    ImpersonateRequest body,
+    ClaimsPrincipal user,
+    HttpContext http,
+    IImpersonationService impersonation,
+    CancellationToken ct) =>
+{
+    var platformUserIdRaw = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+    if (!Guid.TryParse(platformUserIdRaw, out var platformUserId))
+    {
+        return Results.Unauthorized();
+    }
+
+    try
+    {
+        var ip = http.Connection.RemoteIpAddress?.ToString();
+        var result = await impersonation.ImpersonateAsync(
+            companyId,
+            platformUserId,
+            body.Reason,
+            ip,
+            ct);
+        return Results.Ok(result);
+    }
+    catch (KeyNotFoundException)
+    {
+        return Results.NotFound();
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Conflict(new { error = ex.Message });
+    }
+}).RequireAuthorization("SuperAdminOnly");
+
+app.MapGet("/v1/platform/tenants/{companyId:guid}/impersonation-audits", async (
+    Guid companyId,
+    IImpersonationService impersonation,
+    CancellationToken ct) =>
+{
+    var rows = await impersonation.ListAuditsAsync(companyId, take: 20, ct);
+    return Results.Ok(rows);
+}).RequireAuthorization("SuperAdminOnly");
+
 /// <summary>Preflight for company-key login (E3.1). Suspended tenants are rejected here.</summary>
 app.MapPost("/v1/auth/company-access", async (
     CompanyAccessRequest body,
@@ -228,6 +308,88 @@ app.MapGet("/catalog/companies/{companyId:guid}/db-credentials", async (
     return Results.Ok(rows);
 }).RequireAuthorization("SuperAdminOnly");
 
+/// <summary>
+/// Upsert Write or Read credential for a company. Read is optional (replica);
+/// when absent, read queries fall back to Write.
+/// </summary>
+app.MapPut("/catalog/companies/{companyId:guid}/db-credentials/{role}", async (
+    Guid companyId,
+    string role,
+    UpsertDbCredentialRequest body,
+    CatalogDbContext db,
+    ITenantConnectionFactory connections,
+    CancellationToken ct) =>
+{
+    if (!Enum.TryParse<TenantDbCredentialRole>(role, ignoreCase: true, out var credRole))
+    {
+        return Results.BadRequest(new { error = "role must be Write or Read." });
+    }
+
+    if (string.IsNullOrWhiteSpace(body.Host)
+        || string.IsNullOrWhiteSpace(body.Username)
+        || body.Port is < 1 or > 65535)
+    {
+        return Results.BadRequest(new { error = "host, port (1–65535), and username are required." });
+    }
+
+    var companyExists = await db.Companies.AsNoTracking().AnyAsync(x => x.Id == companyId, ct);
+    if (!companyExists)
+    {
+        return Results.NotFound();
+    }
+
+    var existing = await db.TenantDbCredentials
+        .FirstOrDefaultAsync(x => x.CompanyId == companyId && x.Role == credRole && x.IsActive, ct);
+
+    if (existing is null)
+    {
+        if (string.IsNullOrEmpty(body.Password))
+        {
+            return Results.BadRequest(new { error = "password is required when creating credentials." });
+        }
+
+        existing = new TenantDbCredential
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            Role = credRole,
+            Host = body.Host.Trim(),
+            Port = body.Port,
+            Username = body.Username.Trim(),
+            PasswordProtected = body.Password,
+            IsActive = true,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        db.TenantDbCredentials.Add(existing);
+    }
+    else
+    {
+        existing.Host = body.Host.Trim();
+        existing.Port = body.Port;
+        existing.Username = body.Username.Trim();
+        if (!string.IsNullOrEmpty(body.Password))
+        {
+            existing.PasswordProtected = body.Password;
+        }
+
+        existing.RotatedAt = DateTimeOffset.UtcNow;
+    }
+
+    await db.SaveChangesAsync(ct);
+    connections.InvalidateCache(companyId);
+
+    return Results.Ok(new
+    {
+        existing.Id,
+        Role = existing.Role.ToString(),
+        existing.Host,
+        existing.Port,
+        existing.Username,
+        PasswordSet = existing.PasswordProtected.Length > 0,
+        existing.RotatedAt
+    });
+}).RequireAuthorization("SuperAdminOnly");
+
 app.MapGet("/v1/financial-years", async (TenantDbContext db, CancellationToken ct) =>
 {
     var years = await db.FinancialYears.AsNoTracking()
@@ -235,7 +397,7 @@ app.MapGet("/v1/financial-years", async (TenantDbContext db, CancellationToken c
         .Select(x => new { x.Id, x.Name, x.StartDate, x.EndDate, Status = x.Status.ToString(), x.IsDefault })
         .ToListAsync(ct);
     return Results.Ok(years);
-});
+}).RequireAuthorization("TenantOnly");
 
 app.MapPost("/v1/session/financial-year", async (
     SwitchFyRequest body,
@@ -244,7 +406,7 @@ app.MapPost("/v1/session/financial-year", async (
 {
     var result = await switchService.SwitchAsync(body.FinancialYearId, ct);
     return Results.Ok(result);
-});
+}).RequireAuthorization("TenantOnly");
 
 app.MapGet("/v1/reports/balance-sheet", async (
     Guid financialYearId,
@@ -255,7 +417,7 @@ app.MapGet("/v1/reports/balance-sheet", async (
     var date = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
     var result = await balanceSheet.BuildAsync(financialYearId, date, ct);
     return Results.Ok(result);
-});
+}).RequireAuthorization("TenantOnly");
 
 app.MapPost("/v1/financial-years/{id:guid}/close", async (
     Guid id,
@@ -264,13 +426,13 @@ app.MapPost("/v1/financial-years/{id:guid}/close", async (
 {
     var nextId = await yearClose.CloseYearAsync(id, closedByUserId: null, ct);
     return Results.Ok(new { nextFinancialYearId = nextId });
-});
+}).RequireAuthorization("TenantOnly");
 
 app.MapGet("/v1/company/profile", async (TenantDbContext db, CancellationToken ct) =>
 {
     var profile = await db.CompanyProfiles.AsNoTracking().FirstOrDefaultAsync(ct);
     return profile is null ? Results.NotFound() : Results.Ok(profile);
-});
+}).RequireAuthorization("TenantOnly");
 
 app.Run();
 
@@ -385,6 +547,16 @@ internal sealed record SwitchFyRequest(Guid FinancialYearId);
 
 internal sealed record PlatformLoginRequest(string Username, string Password);
 
+internal sealed record TenantLoginRequest(string CompanyKey, string Username, string Password);
+
 internal sealed record CompanyAccessRequest(string CompanyKey);
+
+internal sealed record ImpersonateRequest(string Reason);
+
+internal sealed record UpsertDbCredentialRequest(
+    string Host,
+    int Port,
+    string Username,
+    string? Password);
 
 public partial class Program;
